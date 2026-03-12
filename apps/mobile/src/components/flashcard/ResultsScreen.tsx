@@ -4,6 +4,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withDelay,
 } from 'react-native-reanimated';
 import { useTheme } from '@/src/theme';
+import { F } from '@/src/theme/fonts';
 import type { Flashcard } from '@/src/data/flashcards';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -106,12 +107,12 @@ const styles = StyleSheet.create({
   },
   scoreNumber: {
     fontSize: 32,
-    fontWeight: '700',
+    fontFamily: F.bold,
     letterSpacing: -1,
   },
   scoreLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontFamily: F.medium,
   },
   stats: {
     flexDirection: 'row',
@@ -128,11 +129,11 @@ const styles = StyleSheet.create({
   },
   statNum: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: F.bold,
   },
   statLbl: {
     fontSize: 11,
-    fontWeight: '500',
+    fontFamily: F.medium,
   },
   barBg: {
     width: SCREEN_W - 48,
@@ -156,14 +157,14 @@ const styles = StyleSheet.create({
   btnPrimary: {},
   btnPrimaryText: {
     color: '#fff',
-    fontWeight: '600',
+    fontFamily: F.semibold,
     fontSize: 15,
   },
   btnSecondary: {
     borderWidth: 1,
   },
   btnSecondaryText: {
-    fontWeight: '500',
+    fontFamily: F.medium,
     fontSize: 15,
   },
 });

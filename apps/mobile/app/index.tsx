@@ -8,7 +8,9 @@ import { useRouter } from 'expo-router';
 import { allCards, type Flashcard } from '@/src/data/flashcards';
 import { FlashCard } from '@/src/components/flashcard/FlashCard';
 import { ResultsScreen } from '@/src/components/flashcard/ResultsScreen';
+import { Mic, Settings2 } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
+import { F } from '@/src/theme/fonts';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -59,8 +61,8 @@ export default function HomeScreen() {
             style={[styles.speakingBtn, { borderColor: t.border }]}
             onPress={() => router.push('/practice')}
           >
-            {/* Mic icon */}
-            <Text style={[styles.speakingBtnText, { color: t.muted }]}>🎙 Speaking</Text>
+            <Mic size={14} color={t.muted} strokeWidth={2.5} />
+            <Text style={[styles.speakingBtnText, { color: t.muted }]}>Speaking</Text>
           </Pressable>
 
           <View style={styles.counter}>
@@ -70,6 +72,13 @@ export default function HomeScreen() {
             </Text>
             <Text style={[styles.counterTotal, { color: t.muted }]}>/{total}</Text>
           </View>
+
+          <Pressable
+            style={[styles.settingsBtn, { borderColor: t.border }]}
+            onPress={() => router.push('/settings')}
+          >
+            <Settings2 size={18} color={t.muted} strokeWidth={2} />
+          </Pressable>
         </View>
 
         {/* Content */}
@@ -122,6 +131,9 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   speakingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 14,
@@ -129,7 +141,12 @@ const styles = StyleSheet.create({
   },
   speakingBtnText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: F.medium,
+  },
+  settingsBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
   },
   counter: {
     flexDirection: 'row',
@@ -145,7 +162,7 @@ const styles = StyleSheet.create({
   },
   counterNum: {
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: F.bold,
     fontVariant: ['tabular-nums'],
   },
   counterTotal: {

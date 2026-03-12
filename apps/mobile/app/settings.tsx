@@ -1,0 +1,289 @@
+import React, { useState } from 'react';
+import {
+  View, Text, StyleSheet, Pressable, ScrollView, Switch, Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { useTheme } from '@/src/theme';
+import { F } from '@/src/theme/fonts';
+import { useAuth } from '@/src/context/AuthContext';
+import { useSettings, type ThemeOverride } from '@/src/context/SettingsContext';
+import { usePurchases } from '@/src/context/PurchasesContext';
+
+/* ─── Section & Row helpers ────────────────────────────────────── */
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const t = useTheme();
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: t.muted }]}>{title}</Text>
+      <View style={[styles.sectionCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+function Row({
+  label, value, onPress, last = false, danger = false,
+}: {
+  label: string; value?: string; onPress?: () => void; last?: boolean; danger?: boolean;
+}) {
+  const t = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        !last && { borderBottomWidth: 1, borderBottomColor: t.border },
+        pressed && onPress && { backgroundColor: t.subtle },
+      ]}
+    >
+      <Text style={[styles.rowLabel, { color: danger ? '#ef4444' : t.fg }]}>{label}</Text>
+      {value !== undefined && (
+        <Text style={[styles.rowValue, { color: t.muted }]}>{value}</Text>
+      )}
+    </Pressable>
+  );
+}
+
+function SwitchRow({ label, value, onChange, last = false }: {
+  label: string; value: boolean; onChange: (v: boolean) => void; last?: boolean;
+}) {
+  const t = useTheme();
+  return (
+    <View style={[styles.row, !last && { borderBottomWidth: 1, borderBottomColor: t.border }]}>
+      <Text style={[styles.rowLabel, { color: t.fg }]}>{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: t.border, true: '#f4511e88' }}
+        thumbColor={value ? '#f4511e' : t.muted}
+        ios_backgroundColor={t.border}
+      />
+    </View>
+  );
+}
+
+/* ─── Theme picker ─────────────────────────────────────────────── */
+
+const THEME_OPTIONS: { value: ThemeOverride; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light',  label: 'Light'  },
+  { value: 'dark',   label: 'Dark'   },
+];
+
+function ThemePicker() {
+  const t = useTheme();
+  const { themeOverride, setThemeOverride } = useSettings();
+
+  return (
+    <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
+      <Text style={[styles.rowLabel, { color: t.fg }]}>Appearance</Text>
+      <View style={styles.themeOptions}>
+        {THEME_OPTIONS.map((opt) => {
+          const active = themeOverride === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              onPress={() => setThemeOverride(opt.value)}
+              style={[
+                styles.themeChip,
+                { borderColor: active ? t.accent : t.border, backgroundColor: active ? `${t.accent}18` : t.subtle },
+              ]}
+            >
+              <Text style={[styles.themeChipText, { color: active ? t.accent : t.muted }]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/* ─── Band picker ──────────────────────────────────────────────── */
+
+const BANDS = [5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9];
+
+function BandPicker() {
+  const t = useTheme();
+  const { targetBand, setTargetBand } = useSettings();
+
+  return (
+    <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
+      <Text style={[styles.rowLabel, { color: t.fg }]}>Target Band</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+        <View style={styles.bandRow}>
+          {BANDS.map((b) => {
+            const active = targetBand === b;
+            return (
+              <Pressable
+                key={b}
+                onPress={() => setTargetBand(b)}
+                style={[
+                  styles.bandChip,
+                  { borderColor: active ? t.accent : t.border, backgroundColor: active ? t.accent : t.subtle },
+                ]}
+              >
+                <Text style={[styles.bandChipText, { color: active ? '#fff' : t.muted }]}>
+                  {b}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+/* ─── Screen ──────────────────────────────────────────────────── */
+
+export default function SettingsScreen() {
+  const t                                        = useTheme();
+  const router                                   = useRouter();
+  const { user, signOut }                        = useAuth();
+  const { notificationsEnabled, setNotificationsEnabled } = useSettings();
+  const { isPro }                                = usePurchases();
+
+  async function handleSignOut() {
+    await signOut();
+    router.replace('/auth');
+  }
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]}>
+
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: t.border }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <ChevronLeft size={22} color={t.accent} strokeWidth={2.5} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: t.fg }]}>Settings</Text>
+        <View style={styles.backBtn} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* Pro banner */}
+        {!isPro && (
+          <Pressable
+            onPress={() => router.push('/paywall')}
+            style={[styles.proBanner, { backgroundColor: t.accent }]}
+          >
+            <View>
+              <Text style={styles.proBannerTitle}>Upgrade to Pro ✦</Text>
+              <Text style={styles.proBannerSub}>Unlimited sessions · Full vocab library</Text>
+            </View>
+            <ChevronRight size={22} color="#fff" strokeWidth={2.5} />
+          </Pressable>
+        )}
+
+        {isPro && (
+          <View style={[styles.proActiveBanner, { backgroundColor: `${t.accent}18`, borderColor: t.accent }]}>
+            <Text style={[styles.proActivText, { color: t.accent }]}>✦ Pro — Active</Text>
+          </View>
+        )}
+
+        {/* Profile */}
+        <Section title="ACCOUNT">
+          <Row label={user?.email ?? 'Signed in'} last />
+        </Section>
+
+        {/* Appearance */}
+        <Section title="APPEARANCE">
+          <ThemePicker />
+        </Section>
+
+        {/* Study */}
+        <Section title="STUDY GOALS">
+          <BandPicker />
+        </Section>
+
+        {/* Notifications */}
+        <Section title="NOTIFICATIONS">
+          <SwitchRow
+            label="Daily study reminders"
+            value={notificationsEnabled}
+            onChange={setNotificationsEnabled}
+            last
+          />
+        </Section>
+
+        {/* Sign out */}
+        <Section title="">
+          <Row label="Sign Out" onPress={handleSignOut} danger last />
+        </Section>
+
+        <Text style={[styles.version, { color: t.muted }]}>Vocally · v1.0.0</Text>
+
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+/* ─── Styles ──────────────────────────────────────────────────── */
+
+const styles = StyleSheet.create({
+  safe:   { flex: 1 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1,
+  },
+  backBtn:      { width: 60 },
+  backText:     { fontSize: 15, fontFamily: F.medium },
+  headerTitle:  { fontSize: 17, fontFamily: F.bold },
+
+  scroll: { paddingVertical: 20, paddingHorizontal: 20, gap: 0 },
+
+  section: { marginBottom: 28 },
+  sectionTitle: {
+    fontSize: 11, fontFamily: F.bold, letterSpacing: 0.8,
+    textTransform: 'uppercase', marginBottom: 8, marginLeft: 4,
+  },
+  sectionCard: {
+    borderRadius: 14, borderWidth: 1,
+    overflow: 'hidden',
+  },
+
+  row: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14, minHeight: 52,
+  },
+  rowLabel: { fontSize: 15, fontFamily: F.medium, flex: 1 },
+  rowValue: { fontSize: 14, fontFamily: F.regular },
+
+  themeOptions: { flexDirection: 'row', gap: 8 },
+  themeChip: {
+    borderRadius: 20, borderWidth: 1.5,
+    paddingHorizontal: 16, paddingVertical: 6,
+  },
+  themeChipText: { fontSize: 13, fontFamily: F.semibold },
+
+  bandRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
+  bandChip: {
+    width: 48, height: 40, borderRadius: 10, borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bandChipText: { fontSize: 14, fontFamily: F.bold },
+
+  version: { textAlign: 'center', fontSize: 12, fontFamily: F.regular, marginTop: 8, marginBottom: 20 },
+
+  proBanner: {
+    borderRadius: 16, padding: 18, marginBottom: 24,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  proBannerTitle: { color: '#fff', fontSize: 16, fontFamily: F.bold, marginBottom: 3 },
+  proBannerSub:   { color: '#ffffff99', fontSize: 12, fontFamily: F.regular },
+  proBannerArrow: { color: '#fff', fontSize: 22, fontFamily: F.bold },
+
+  proActiveBanner: {
+    borderRadius: 12, borderWidth: 1.5,
+    paddingHorizontal: 16, paddingVertical: 10,
+    marginBottom: 24, alignItems: 'center',
+  },
+  proActivText: { fontSize: 14, fontFamily: F.bold },
+});

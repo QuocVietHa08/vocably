@@ -1,10 +1,18 @@
 import { useColorScheme } from 'react-native';
+import { useContext } from 'react';
+import { SettingsContext } from './themeContext';
+export { F } from './fonts';
 
 export const ACCENT = '#f4511e';
 
+// Internal context re-export so theme/index stays the single import point
+export { SettingsContext };
+
 export function useTheme() {
-  const scheme = useColorScheme();
-  const dark = scheme === 'dark';
+  const scheme       = useColorScheme();
+  const override     = useContext(SettingsContext);
+  const resolvedMode = override === 'system' ? scheme : override;
+  const dark         = resolvedMode === 'dark';
 
   return {
     dark,
