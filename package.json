@@ -1,0 +1,19 @@
+{
+  "name": "ielts-coach",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev":        "npm run dev --workspace=apps/web",
+    "dev:mobile": "npm run start --workspace=apps/mobile",
+    "dev:api":    "npm run dev --workspace=apps/api",
+    "dev:admin":  "npm run dev --workspace=apps/admin",
+    "build":      "npm run build --workspace=apps/web",
+    "typecheck":  "tsc --noEmit --project apps/web/tsconfig.json && tsc --noEmit --project apps/mobile/tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2"
+  }
+}

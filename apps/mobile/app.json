@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "IELTS Coach",
+    "slug": "ielts-flashcard-app",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "ielts",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f0f0f0"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "IELTS Coach needs the microphone for speaking practice."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f0f0f0",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    }
+  }
+}

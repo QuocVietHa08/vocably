@@ -1,0 +1,39 @@
+{
+  // Editor
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.tabSize": 2,
+  "editor.rulers": [100],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  // TypeScript
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // File associations
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+
+  // Tailwind IntelliSense
+  "tailwindCSS.experimental.classRegex": [
+    ["cn\\(([^)]*)\\)", "'([^']*)'"]
+  ],
+
+  // Exclude noise from file explorer
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/.expo": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/.git": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true
+  }
+}
