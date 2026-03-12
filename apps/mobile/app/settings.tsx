@@ -9,6 +9,7 @@ import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 import { useAuth } from '@/src/context/AuthContext';
 import { useSettings, type ThemeOverride } from '@/src/context/SettingsContext';
+import { NATIVE_LANGUAGES } from './welcome';
 import { usePurchases } from '@/src/context/PurchasesContext';
 
 /* ─── Section & Row helpers ────────────────────────────────────── */
@@ -96,6 +97,37 @@ function ThemePicker() {
               <Text style={[styles.themeChipText, { color: active ? t.accent : t.muted }]}>
                 {opt.label}
               </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/* ─── Language picker ──────────────────────────────────────────── */
+
+function LanguagePicker() {
+  const t = useTheme();
+  const { nativeLanguage, setNativeLanguage } = useSettings();
+
+  return (
+    <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
+      <Text style={[styles.rowLabel, { color: t.fg }]}>Your Language</Text>
+      <View style={styles.langGrid}>
+        {NATIVE_LANGUAGES.map((lang) => {
+          const active = nativeLanguage === lang.code;
+          return (
+            <Pressable
+              key={lang.code}
+              onPress={() => setNativeLanguage(lang.code)}
+              style={[
+                styles.langPill,
+                { borderColor: active ? t.accent : t.border, backgroundColor: active ? `${t.accent}15` : t.subtle },
+              ]}
+            >
+              <Text style={styles.langFlag}>{lang.flag}</Text>
+              <Text style={[styles.langName, { color: active ? t.accent : t.fg }]}>{lang.name}</Text>
             </Pressable>
           );
         })}
@@ -198,6 +230,11 @@ export default function SettingsScreen() {
           <ThemePicker />
         </Section>
 
+        {/* Language */}
+        <Section title="YOUR LANGUAGE">
+          <LanguagePicker />
+        </Section>
+
         {/* Study */}
         <Section title="STUDY GOALS">
           <BandPicker />
@@ -262,6 +299,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 6,
   },
   themeChipText: { fontSize: 13, fontFamily: F.semibold },
+
+  langGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingBottom: 4 },
+  langPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderRadius: 20, borderWidth: 1.5, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  langFlag: { fontSize: 16 },
+  langName: { fontSize: 12, fontFamily: F.medium },
 
   bandRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
   bandChip: {

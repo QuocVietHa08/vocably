@@ -10,15 +10,18 @@ interface SettingsValue {
   themeOverride:           ThemeOverride;
   targetBand:              number;          // IELTS 5–9
   notificationsEnabled:    boolean;
+  nativeLanguage:          string;          // e.g. 'vi', 'zh', 'ja' …  '' = not yet set
   setThemeOverride:        (v: ThemeOverride) => void;
   setTargetBand:           (v: number) => void;
   setNotificationsEnabled: (v: boolean) => void;
+  setNativeLanguage:       (v: string) => void;
 }
 
-const DEFAULTS: Omit<SettingsValue, 'setThemeOverride' | 'setTargetBand' | 'setNotificationsEnabled'> = {
-  themeOverride:        'system',
+const DEFAULTS = {
+  themeOverride:        'system' as ThemeOverride,
   targetBand:           7,
   notificationsEnabled: true,
+  nativeLanguage:       '',
 };
 
 const SettingsContext = createContext<SettingsValue>({
@@ -26,6 +29,7 @@ const SettingsContext = createContext<SettingsValue>({
   setThemeOverride:        () => {},
   setTargetBand:           () => {},
   setNotificationsEnabled: () => {},
+  setNativeLanguage:       () => {},
 });
 
 const STORAGE_KEY = '@vocally/settings';
@@ -36,6 +40,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [themeOverride,        setThemeOverrideState]        = useState<ThemeOverride>(DEFAULTS.themeOverride);
   const [targetBand,           setTargetBandState]           = useState(DEFAULTS.targetBand);
   const [notificationsEnabled, setNotificationsEnabledState] = useState(DEFAULTS.notificationsEnabled);
+  const [nativeLanguage,       setNativeLanguageState]       = useState(DEFAULTS.nativeLanguage);
 
   // Load from storage once on mount
   useEffect(() => {
@@ -43,15 +48,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (!raw) return;
       try {
         const saved = JSON.parse(raw);
-        if (saved.themeOverride)        setThemeOverrideState(saved.themeOverride);
-        if (saved.targetBand != null)   setTargetBandState(saved.targetBand);
+        if (saved.themeOverride)                setThemeOverrideState(saved.themeOverride);
+        if (saved.targetBand != null)           setTargetBandState(saved.targetBand);
         if (saved.notificationsEnabled != null) setNotificationsEnabledState(saved.notificationsEnabled);
+        if (saved.nativeLanguage)               setNativeLanguageState(saved.nativeLanguage);
       } catch {}
     });
   }, []);
 
   function persist(patch: Partial<typeof DEFAULTS>) {
-    const current = { themeOverride, targetBand, notificationsEnabled };
+    const current = { themeOverride, targetBand, notificationsEnabled, nativeLanguage };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...patch }));
   }
 
@@ -59,22 +65,24 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setThemeOverrideState(v);
     persist({ themeOverride: v });
   }
-
   function setTargetBand(v: number) {
     setTargetBandState(v);
     persist({ targetBand: v });
   }
-
   function setNotificationsEnabled(v: boolean) {
     setNotificationsEnabledState(v);
     persist({ notificationsEnabled: v });
+  }
+  function setNativeLanguage(v: string) {
+    setNativeLanguageState(v);
+    persist({ nativeLanguage: v });
   }
 
   return (
     <ThemeBridgeContext.Provider value={themeOverride}>
       <SettingsContext.Provider value={{
-        themeOverride, targetBand, notificationsEnabled,
-        setThemeOverride, setTargetBand, setNotificationsEnabled,
+        themeOverride, targetBand, notificationsEnabled, nativeLanguage,
+        setThemeOverride, setTargetBand, setNotificationsEnabled, setNativeLanguage,
       }}>
         {children}
       </SettingsContext.Provider>
