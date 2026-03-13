@@ -1,17 +1,19 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 // Use RNGH Pressable — it's gesture-system-aware and works correctly inside GestureDetector
 import { Gesture, GestureDetector, Pressable } from 'react-native-gesture-handler';
 import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence,
+  useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, withRepeat, withDelay,
   interpolate, runOnJS, Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
-import { Volume2, Heart } from 'lucide-react-native';
+import { Volume2, Heart, Share2 } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 import type { Flashcard } from '@/src/data/flashcards';
+import { ttsSpeak, ttsStop } from '@/src/lib/openaiTts';
+import { captureAndShare } from '@/src/lib/share';
+import { useSettings } from '@/src/context/SettingsContext';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_W * 0.18;
@@ -19,23 +21,355 @@ const FLICK_VELOCITY  = 500;
 const CARD_W = SCREEN_W - 48;
 const CARD_H = 420;
 
+// Share card dimensions — rendered off-screen for clean share images
+const SHARE_W = 360;
+const SHARE_H = 480;
+
 interface FlashCardProps {
   card:              Flashcard;
   onKnow:            () => void;
   onDontKnow:        () => void;
   isFavorite?:       boolean;
   onToggleFavorite?: () => void;
-  autoSpeak?:        boolean;
-  voiceLang?:        string;   // e.g. 'en-US', 'en-GB'
 }
 
-/** Stop any in-progress TTS, then speak the given text */
-async function ttsSpeak(text: string, slow = false, lang = 'en-US') {
-  try {
-    await Speech.stop();
-    Speech.speak(text, { language: lang, rate: slow ? 0.75 : 0.95, pitch: 1.0 });
-  } catch (_) {}
+/* ─── Off-screen share card ────────────────────────────────────── */
+// Renders a beautiful, minimal card image suitable for social sharing.
+// Positioned far off-screen so it never appears in the UI.
+
+function ShareCardView({
+  card,
+  shareRef,
+}: {
+  card: Flashcard;
+  shareRef: React.RefObject<any>;
+}) {
+  const example = card.examples?.[0] ?? card.example;
+
+  return (
+    <View
+      ref={shareRef}
+      collapsable={false}
+      style={shareStyles.root}
+      pointerEvents="none"
+    >
+      {/* Top brand strip */}
+      <View style={shareStyles.brandBar}>
+        <View style={shareStyles.brandDot} />
+        <Text style={shareStyles.brandName}>Vocally</Text>
+        <Text style={shareStyles.brandSub}>IELTS Vocabulary</Text>
+      </View>
+
+      {/* Word + phonetic */}
+      <View style={shareStyles.wordBlock}>
+        <Text style={shareStyles.word}>{card.word}</Text>
+        {card.phonetic && (
+          <Text style={shareStyles.phonetic}>{card.phonetic}</Text>
+        )}
+        {card.partOfSpeech && (
+          <Text style={shareStyles.pos}>{card.partOfSpeech}</Text>
+        )}
+      </View>
+
+      {/* Divider */}
+      <View style={shareStyles.divider} />
+
+      {/* Definition */}
+      <Text style={shareStyles.definition}>{card.definition}</Text>
+
+      {/* Example */}
+      {example ? (
+        <View style={shareStyles.exampleBox}>
+          <Text style={shareStyles.exampleQuote}>"</Text>
+          <Text style={shareStyles.exampleText}>{example}</Text>
+        </View>
+      ) : null}
+
+      {/* Footer */}
+      <View style={shareStyles.footer}>
+        <Text style={shareStyles.footerTag}>#IELTS</Text>
+        <Text style={shareStyles.footerTag}>#Vocabulary</Text>
+        <Text style={shareStyles.footerApp}>vocally</Text>
+      </View>
+    </View>
+  );
 }
+
+const shareStyles = StyleSheet.create({
+  root: {
+    // Off-screen — never visible in the app UI
+    position: 'absolute',
+    left: -SHARE_W - 100,
+    top: 0,
+    width: SHARE_W,
+    height: SHARE_H,
+    backgroundColor: '#0a0a0a',
+    borderRadius: 24,
+    padding: 32,
+    gap: 0,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  brandBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 32,
+  },
+  brandDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#f4511e',
+  },
+  brandName: {
+    fontSize: 14,
+    fontFamily: F.bold,
+    color: '#f5f5f5',
+    letterSpacing: 0.8,
+  },
+  brandSub: {
+    fontSize: 11,
+    fontFamily: F.medium,
+    color: '#666666',
+    letterSpacing: 0.4,
+  },
+  wordBlock: {
+    gap: 6,
+    marginBottom: 20,
+  },
+  word: {
+    fontSize: 44,
+    fontFamily: F.bold,
+    color: '#f5f5f5',
+    letterSpacing: -1.5,
+    lineHeight: 52,
+  },
+  phonetic: {
+    fontSize: 16,
+    color: '#888888',
+    fontFamily: F.medium,
+  },
+  pos: {
+    fontSize: 12,
+    color: '#f4511e',
+    fontFamily: F.semibold,
+    textTransform: 'lowercase',
+    letterSpacing: 0.3,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#222222',
+    marginVertical: 20,
+  },
+  definition: {
+    fontSize: 16,
+    lineHeight: 26,
+    color: '#d0d0d0',
+    fontFamily: F.medium,
+    marginBottom: 20,
+  },
+  exampleBox: {
+    flexDirection: 'row',
+    gap: 4,
+    paddingLeft: 2,
+  },
+  exampleQuote: {
+    fontSize: 32,
+    color: '#f4511e',
+    fontFamily: F.bold,
+    lineHeight: 36,
+    marginTop: -4,
+  },
+  exampleText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#888888',
+    fontStyle: 'italic',
+    fontFamily: F.medium,
+    paddingTop: 6,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 32,
+  },
+  footerTag: {
+    fontSize: 11,
+    color: '#444444',
+    fontFamily: F.medium,
+  },
+  footerApp: {
+    marginLeft: 'auto',
+    fontSize: 11,
+    color: '#444444',
+    fontFamily: F.bold,
+    letterSpacing: 1,
+  },
+});
+
+/* ─── Animated speak button ────────────────────────────────────── */
+
+function SpeakButton({
+  onSpeak,
+  size = 17,
+  style,
+}: {
+  onSpeak: () => void;
+  size?: number;
+  style?: any;
+}) {
+  const t = useTheme();
+  const scale    = useSharedValue(1);
+  const playing  = useSharedValue(0); // 0 = idle, 1 = playing
+  const ring1    = useSharedValue(0);
+  const ring2    = useSharedValue(0);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const ring1Style = useAnimatedStyle(() => ({
+    opacity: interpolate(ring1.value, [0, 0.5, 1], [0.5, 0.2, 0]),
+    transform: [{ scale: interpolate(ring1.value, [0, 1], [1, 2.2]) }],
+  }));
+
+  const ring2Style = useAnimatedStyle(() => ({
+    opacity: interpolate(ring2.value, [0, 0.5, 1], [0.4, 0.15, 0]),
+    transform: [{ scale: interpolate(ring2.value, [0, 1], [1, 2.6]) }],
+  }));
+
+  const iconColorStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(playing.value, [0, 1], [0.6, 1]),
+  }));
+
+  function handlePress() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Bounce
+    scale.value = withSequence(
+      withTiming(0.75, { duration: 80 }),
+      withSpring(1.15, { damping: 4, stiffness: 400, mass: 0.3 }),
+      withSpring(1.0,  { damping: 10, stiffness: 200 }),
+    );
+
+    // Ripple rings
+    ring1.value = 0;
+    ring2.value = 0;
+    ring1.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) });
+    ring2.value = withDelay(120, withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) }));
+
+    // Glow while "playing"
+    playing.value = withSequence(
+      withTiming(1, { duration: 150 }),
+      withDelay(1200, withTiming(0, { duration: 400 })),
+    );
+
+    onSpeak();
+  }
+
+  return (
+    <Pressable onPress={handlePress} style={[styles.speakBtn, style]} hitSlop={14}>
+      {/* Ripple rings */}
+      <Animated.View style={[styles.speakRing, { borderColor: t.accent }, ring1Style]} />
+      <Animated.View style={[styles.speakRing, { borderColor: t.accent }, ring2Style]} />
+      {/* Icon */}
+      <Animated.View style={[animStyle]}>
+        <Animated.View style={iconColorStyle}>
+          <Volume2 size={size} color={t.accent} strokeWidth={2.2} />
+        </Animated.View>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+/* ─── Animated share button ─────────────────────────────────────── */
+
+const SHARE_BLUE = '#3b82f6';
+
+function ShareButton({
+  shareRef,
+  style,
+}: {
+  shareRef: React.RefObject<any>;
+  style?: any;
+}) {
+  const scale   = useSharedValue(1);
+  const rotate  = useSharedValue(0);
+  const ring1   = useSharedValue(0);
+  const ring2   = useSharedValue(0);
+  const glow    = useSharedValue(0);
+  const [busy, setBusy] = useState(false);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale:  scale.value },
+      { rotate: `${rotate.value}deg` },
+    ],
+    opacity: interpolate(glow.value, [0, 1], [0.7, 1]),
+  }));
+
+  const ring1Style = useAnimatedStyle(() => ({
+    opacity: interpolate(ring1.value, [0, 0.4, 1], [0.55, 0.2, 0]),
+    transform: [{ scale: interpolate(ring1.value, [0, 1], [1, 2.1]) }],
+  }));
+
+  const ring2Style = useAnimatedStyle(() => ({
+    opacity: interpolate(ring2.value, [0, 0.4, 1], [0.4, 0.12, 0]),
+    transform: [{ scale: interpolate(ring2.value, [0, 1], [1, 2.6]) }],
+  }));
+
+  async function handlePress() {
+    if (busy) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Bounce + small tilt
+    scale.value = withSequence(
+      withTiming(0.72, { duration: 75 }),
+      withSpring(1.18, { damping: 4, stiffness: 420, mass: 0.3 }),
+      withSpring(1.0,  { damping: 10, stiffness: 200 }),
+    );
+    rotate.value = withSequence(
+      withTiming(-18, { duration: 80 }),
+      withSpring(0,   { damping: 5, stiffness: 350 }),
+    );
+
+    // Ripple rings
+    ring1.value = 0;
+    ring2.value = 0;
+    ring1.value = withTiming(1, { duration: 650, easing: Easing.out(Easing.cubic) });
+    ring2.value = withDelay(130, withTiming(1, { duration: 650, easing: Easing.out(Easing.cubic) }));
+
+    // Glow pulse
+    glow.value = withSequence(
+      withTiming(1, { duration: 100 }),
+      withDelay(400, withTiming(0, { duration: 350 })),
+    );
+
+    setBusy(true);
+    try {
+      await captureAndShare(shareRef);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Pressable onPress={handlePress} style={[styles.shareBtn, style]} hitSlop={14} disabled={busy}>
+      {/* Ripple rings */}
+      <Animated.View style={[styles.shareRing, { borderColor: SHARE_BLUE }, ring1Style]} />
+      <Animated.View style={[styles.shareRing, { borderColor: SHARE_BLUE }, ring2Style]} />
+      {/* Icon */}
+      <Animated.View style={animStyle}>
+        <Share2 size={16} color={SHARE_BLUE} strokeWidth={2.2} />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+/* ─── FlashCard ────────────────────────────────────────────────── */
 
 export function FlashCard({
   card,
@@ -43,11 +377,13 @@ export function FlashCard({
   onDontKnow,
   isFavorite      = false,
   onToggleFavorite,
-  autoSpeak       = false,
-  voiceLang       = 'en-US',
 }: FlashCardProps) {
   const t       = useTheme();
+  const { ttsVoice } = useSettings();
   const [flipped, setFlipped] = useState(false);
+
+  // Ref for the off-screen share card image
+  const shareRef = useRef<any>(null);
 
   // ── Shared values ─────────────────────────────────────────────
   const translateX   = useSharedValue(0);
@@ -59,29 +395,18 @@ export function FlashCard({
   const burstScale   = useSharedValue(1);
   const burstOpacity = useSharedValue(0);
 
-  // ── Auto-speak word on mount / card change ─────────────────────
-  useEffect(() => {
-    if (autoSpeak) {
-      const t = setTimeout(() => void ttsSpeak(card.word, false, voiceLang), 500);
-      return () => clearTimeout(t);
-    }
-  }, [card.id, autoSpeak, voiceLang]);
-
   // ── Heart burst animation when favorited ───────────────────────
   useEffect(() => {
     if (isFavorite) {
-      // Bounce the heart
       heartScale.value = withSequence(
         withSpring(1.55, { damping: 3, stiffness: 500, mass: 0.4 }),
         withSpring(1.0,  { damping: 10, stiffness: 200 }),
       );
-      // Ring burst
       burstScale.value   = 1;
       burstOpacity.value = 0.6;
       burstScale.value   = withTiming(2.4, { duration: 380, easing: Easing.out(Easing.cubic) });
       burstOpacity.value = withTiming(0,   { duration: 380 });
     } else {
-      // Soft shrink on un-save
       heartScale.value = withSequence(
         withTiming(0.75, { duration: 100 }),
         withSpring(1.0,  { damping: 12, stiffness: 200 }),
@@ -92,7 +417,7 @@ export function FlashCard({
   // ── Fly-out (swipe to rate) ────────────────────────────────────
   const flyOut = useCallback((direction: 'left' | 'right') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    void Speech.stop();
+    void ttsStop();
     const targetX = direction === 'right' ? SCREEN_W * 1.6 : -SCREEN_W * 1.6;
     translateX.value = withTiming(targetX, { duration: 480, easing: Easing.out(Easing.cubic) }, (done) => {
       if (done) runOnJS(direction === 'right' ? onKnow : onDontKnow)();
@@ -159,122 +484,145 @@ export function FlashCard({
     Haptics.selectionAsync();
     const toFlipped = !flipped;
     flipProgress.value = withTiming(toFlipped ? 1 : 0, { duration: 360, easing: Easing.inOut(Easing.quad) });
-    // Speak definition on reveal, word on flip back
-    setTimeout(() => void ttsSpeak(toFlipped ? card.definition : card.word, false, voiceLang), 420);
     setFlipped(toFlipped);
-  }, [flipped, flipProgress, card, voiceLang]);
+  }, [flipped, flipProgress]);
 
   const diffColor  = card.difficulty === 'hard' ? '#ef4444' : card.difficulty === 'medium' ? '#f59e0b' : '#22c55e';
   const heartColor = isFavorite ? '#ef4444' : t.muted;
 
   // ── Render ─────────────────────────────────────────────────────
   return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View style={[styles.cardWrapper, cardStyle]}>
+    <>
+      {/* Off-screen share card — captured by ShareButton, never shown in UI */}
+      <ShareCardView card={card} shareRef={shareRef} />
 
-        {/* Swipe labels */}
-        <Animated.View style={[styles.label, styles.knowLabel,     knowStyle]}     pointerEvents="none"><Text style={styles.knowText}>KNOW ✓</Text></Animated.View>
-        <Animated.View style={[styles.label, styles.dontKnowLabel, dontKnowStyle]} pointerEvents="none"><Text style={styles.dontKnowText}>AGAIN ↺</Text></Animated.View>
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={[styles.cardWrapper, cardStyle]}>
 
-        {/* ── FRONT face ──
-            Touch priority:
-              1. absoluteFill flip Pressable  (rendered first = lowest)
-              2. pointerEvents="none" content (passes through)
-              3. Icon buttons, position:absolute (rendered last = highest)
-        */}
-        <Animated.View
-          style={[styles.face, { backgroundColor: t.surface, borderColor: t.border }, frontStyle]}
-          pointerEvents={flipped ? 'none' : 'box-none'}
-        >
-          {/* 1 — Flip tap target */}
-          <Pressable onPress={handleFlip} style={StyleSheet.absoluteFillObject} />
+          {/* Swipe labels */}
+          <Animated.View style={[styles.label, styles.knowLabel,     knowStyle]}     pointerEvents="none"><Text style={styles.knowText}>KNOW ✓</Text></Animated.View>
+          <Animated.View style={[styles.label, styles.dontKnowLabel, dontKnowStyle]} pointerEvents="none"><Text style={styles.dontKnowText}>AGAIN ↺</Text></Animated.View>
 
-          {/* 2 — Visual content (non-interactive) */}
-          <View style={styles.faceContent} pointerEvents="none">
-            <View style={styles.meta}>
-              {card.band && (
+          {/* ── FRONT face ── */}
+          <Animated.View
+            style={[styles.face, { backgroundColor: t.surface, borderColor: t.border }, frontStyle]}
+            pointerEvents={flipped ? 'none' : 'box-none'}
+          >
+            {/* 1 — Flip tap target */}
+            <Pressable onPress={handleFlip} style={StyleSheet.absoluteFillObject} />
+
+            {/* 2 — Visual content (non-interactive) */}
+            <View style={styles.faceContent} pointerEvents="none">
+              <View style={styles.meta}>
+                {card.band && (
+                  <View style={[styles.pill, { backgroundColor: t.subtle }]}>
+                    <Text style={[styles.pillText, { color: t.muted }]}>Band {card.band}</Text>
+                  </View>
+                )}
                 <View style={[styles.pill, { backgroundColor: t.subtle }]}>
-                  <Text style={[styles.pillText, { color: t.muted }]}>Band {card.band}</Text>
+                  <Text style={[styles.pillText, { color: t.muted }]}>{card.category}</Text>
+                </View>
+                <View style={[styles.diffDot, { backgroundColor: diffColor }]} />
+              </View>
+
+              <View style={styles.centreContent}>
+                <Text style={[styles.word,     { color: t.fg }]}>{card.word}</Text>
+                {card.phonetic     && <Text style={[styles.phonetic, { color: t.muted }]}>{card.phonetic}</Text>}
+                {card.partOfSpeech && <Text style={[styles.pos,      { color: t.accent }]}>{card.partOfSpeech}</Text>}
+              </View>
+
+              <Text style={[styles.hint, { color: t.muted }]}>tap to reveal · swipe to rate</Text>
+            </View>
+
+            {/* 3 — Top-right button cluster: Share + Heart */}
+            <View style={styles.topRightCluster} pointerEvents="box-none">
+              <ShareButton shareRef={shareRef} />
+              {onToggleFavorite && (
+                <Pressable onPress={onToggleFavorite} hitSlop={14} style={styles.heartBtn}>
+                  {/* Burst ring */}
+                  <Animated.View style={[styles.burstRing, { borderColor: '#ef4444' }, burstStyle]} />
+                  {/* Heart icon */}
+                  <Animated.View style={heartAnimStyle}>
+                    <Heart
+                      size={19}
+                      color={heartColor}
+                      fill={isFavorite ? '#ef4444' : 'none'}
+                      strokeWidth={2}
+                    />
+                  </Animated.View>
+                </Pressable>
+              )}
+            </View>
+
+            {/* 4 — Speak word button (bottom-right) */}
+            <SpeakButton
+              onSpeak={() => void ttsSpeak(card.word, ttsVoice, 0.85)}
+              size={17}
+              style={styles.btnBottomRight}
+            />
+          </Animated.View>
+
+          {/* ── BACK face ── */}
+          <Animated.View
+            style={[styles.face, { backgroundColor: t.surface, borderColor: t.border }, backStyle]}
+            pointerEvents={flipped ? 'box-none' : 'none'}
+          >
+            {/* 1 — Flip tap target */}
+            <Pressable onPress={handleFlip} style={StyleSheet.absoluteFillObject} />
+
+            {/* 2 — Visual content (non-interactive) */}
+            <View style={styles.backContent} pointerEvents="none">
+              <Text style={[styles.backWord,   { color: t.fg }]}>{card.word}</Text>
+              <View style={[styles.divider,    { backgroundColor: t.border }]} />
+              <Text style={[styles.definition, { color: t.fg }]}>{card.definition}</Text>
+
+              {/* Examples */}
+              {card.examples && card.examples.length > 0 ? (
+                <View style={styles.examplesBlock}>
+                  {card.examples.map((ex, i) => (
+                    <Text key={i} style={[styles.example, { color: t.muted }]}>
+                      {i + 1}. "{ex}"
+                    </Text>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.example, { color: t.muted }]}>"{card.example}"</Text>
+              )}
+
+              {card.tip && (
+                <View style={[styles.tipBox, { backgroundColor: t.subtle, borderColor: t.border }]}>
+                  <Text style={[styles.tipText, { color: t.muted }]}>💡 {card.tip}</Text>
                 </View>
               )}
-              <View style={[styles.pill, { backgroundColor: t.subtle }]}>
-                <Text style={[styles.pillText, { color: t.muted }]}>{card.category}</Text>
-              </View>
-              <View style={[styles.diffDot, { backgroundColor: diffColor }]} />
+              {card.synonyms && card.synonyms.length > 0 && (
+                <View style={styles.synonymRow}>
+                  <Text style={[styles.synonymLabel, { color: t.muted }]}>≈ </Text>
+                  <Text style={[styles.synonymText,  { color: t.muted }]}>{card.synonyms.join(', ')}</Text>
+                </View>
+              )}
             </View>
 
-            <View style={styles.centreContent}>
-              <Text style={[styles.word,     { color: t.fg }]}>{card.word}</Text>
-              {card.phonetic     && <Text style={[styles.phonetic, { color: t.muted }]}>{card.phonetic}</Text>}
-              {card.partOfSpeech && <Text style={[styles.pos,      { color: t.accent }]}>{card.partOfSpeech}</Text>}
-            </View>
+            {/* 3a — Speak word (top-right) */}
+            <SpeakButton
+              onSpeak={() => void ttsSpeak(card.word, ttsVoice, 0.85)}
+              size={16}
+              style={styles.btnTopRight}
+            />
 
-            <Text style={[styles.hint, { color: t.muted }]}>tap to reveal · swipe to rate</Text>
-          </View>
+            {/* 3b — Speak examples (bottom-right) */}
+            <SpeakButton
+              onSpeak={() => {
+                const text = card.examples?.length ? card.examples.join('. ') : card.example;
+                void ttsSpeak(text, ttsVoice, 0.85);
+              }}
+              size={14}
+              style={styles.btnBottomRight}
+            />
+          </Animated.View>
 
-          {/* 3a — Favorite button (top-right, highest touch priority) */}
-          {onToggleFavorite && (
-            <Pressable onPress={onToggleFavorite} style={styles.btnTopRight} hitSlop={14}>
-              {/* Burst ring */}
-              <Animated.View style={[styles.burstRing, { borderColor: '#ef4444' }, burstStyle]} />
-              {/* Heart icon with scale animation */}
-              <Animated.View style={heartAnimStyle}>
-                <Heart
-                  size={19}
-                  color={heartColor}
-                  fill={isFavorite ? '#ef4444' : 'none'}
-                  strokeWidth={2}
-                />
-              </Animated.View>
-            </Pressable>
-          )}
-
-          {/* 3b — Speak button (bottom-right) */}
-          <Pressable onPress={() => void ttsSpeak(card.word, true, voiceLang)} style={styles.btnBottomRight} hitSlop={14}>
-            <Volume2 size={17} color={t.muted} strokeWidth={2} />
-          </Pressable>
         </Animated.View>
-
-        {/* ── BACK face ── */}
-        <Animated.View
-          style={[styles.face, { backgroundColor: t.surface, borderColor: t.border }, backStyle]}
-          pointerEvents={flipped ? 'box-none' : 'none'}
-        >
-          {/* 1 — Flip tap target */}
-          <Pressable onPress={handleFlip} style={StyleSheet.absoluteFillObject} />
-
-          {/* 2 — Visual content (non-interactive) */}
-          <View style={styles.backContent} pointerEvents="none">
-            <Text style={[styles.backWord,   { color: t.fg }]}>{card.word}</Text>
-            <View style={[styles.divider,    { backgroundColor: t.border }]} />
-            <Text style={[styles.definition, { color: t.fg }]}>{card.definition}</Text>
-            <Text style={[styles.example,    { color: t.muted }]}>"{card.example}"</Text>
-            {card.tip && (
-              <View style={[styles.tipBox, { backgroundColor: t.subtle, borderColor: t.border }]}>
-                <Text style={[styles.tipText, { color: t.muted }]}>💡 {card.tip}</Text>
-              </View>
-            )}
-            {card.synonyms && card.synonyms.length > 0 && (
-              <View style={styles.synonymRow}>
-                <Text style={[styles.synonymLabel, { color: t.muted }]}>≈ </Text>
-                <Text style={[styles.synonymText,  { color: t.muted }]}>{card.synonyms.join(', ')}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* 3a — Speak word (top-right) */}
-          <Pressable onPress={() => void ttsSpeak(card.word, true, voiceLang)} style={styles.btnTopRight} hitSlop={14}>
-            <Volume2 size={16} color={t.muted} strokeWidth={2} />
-          </Pressable>
-
-          {/* 3b — Speak example (bottom-right) */}
-          <Pressable onPress={() => void ttsSpeak(card.example, true, voiceLang)} style={styles.btnBottomRight} hitSlop={14}>
-            <Volume2 size={14} color={t.muted} strokeWidth={2} />
-          </Pressable>
-        </Animated.View>
-
-      </Animated.View>
-    </GestureDetector>
+      </GestureDetector>
+    </>
   );
 }
 
@@ -314,6 +662,7 @@ const styles = StyleSheet.create({
   backWord:     { fontSize: 22, fontFamily: F.bold, letterSpacing: -0.5 },
   divider:      { height: 1 },
   definition:   { fontSize: 15, lineHeight: 22, fontFamily: F.medium },
+  examplesBlock:{ gap: 4 },
   example:      { fontSize: 13, lineHeight: 20, fontStyle: 'italic' },
   tipBox:       { borderRadius: 10, borderWidth: 1, padding: 10, marginTop: 4 },
   tipText:      { fontSize: 12, lineHeight: 18 },
@@ -321,14 +670,51 @@ const styles = StyleSheet.create({
   synonymLabel: { fontSize: 12, fontFamily: F.medium },
   synonymText:  { fontSize: 12, fontStyle: 'italic' },
 
-  /* Absolutely-positioned buttons */
+  /* ── Top-right cluster: share + heart side by side ── */
+  topRightCluster: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+
+  heartBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* Absolutely-positioned buttons (speak buttons) */
   btnTopRight: {
     position: 'absolute', top: 16, right: 18,
     padding: 6, alignItems: 'center', justifyContent: 'center',
   },
   btnBottomRight: {
     position: 'absolute', bottom: 14, right: 18,
-    padding: 6,
+    padding: 6, alignItems: 'center', justifyContent: 'center',
+  },
+
+  /* Speak button */
+  speakBtn: {
+    alignItems: 'center', justifyContent: 'center',
+    width: 36, height: 36,
+  },
+  speakRing: {
+    position: 'absolute',
+    width: 28, height: 28, borderRadius: 14, borderWidth: 1.5,
+  },
+
+  /* Share button */
+  shareBtn: {
+    alignItems: 'center', justifyContent: 'center',
+    width: 36, height: 36,
+  },
+  shareRing: {
+    position: 'absolute',
+    width: 28, height: 28, borderRadius: 14, borderWidth: 1.5,
   },
 
   /* Heart burst ring */

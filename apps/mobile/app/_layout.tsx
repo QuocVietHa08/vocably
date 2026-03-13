@@ -16,8 +16,8 @@ import {
 } from '@expo-google-fonts/nunito';
 
 import { SettingsProvider } from '@/src/context/SettingsContext';
-import { AuthProvider, useAuth } from '@/src/context/AuthContext';
-import { PurchasesProvider } from '@/src/context/PurchasesContext';
+// import { AuthProvider, useAuth } from '@/src/context/AuthContext';
+// import { PurchasesProvider } from '@/src/context/PurchasesContext';
 import { WELCOME_SEEN_KEY } from './welcome';
 
 // Keep the splash screen visible while fonts + auth load
@@ -28,7 +28,7 @@ SplashScreen.preventAutoHideAsync();
 function NavigationGuard() {
   const router             = useRouter();
   const segments           = useSegments();
-  const { user, loading }  = useAuth();
+  // const { user, loading }  = useAuth(); // TODO: re-enable when auth is configured
   const [welcomeSeen, setWelcomeSeen] = useState<boolean | null>(null);
 
   // Load welcome flag
@@ -80,8 +80,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <SettingsProvider>
-          <AuthProvider>
-            <PurchasesProvider>
+          {/* <AuthProvider> */}
+          {/* <PurchasesProvider> */}
               <StatusBar style="auto" />
               <NavigationGuard />
               <Stack
@@ -91,8 +91,8 @@ export default function RootLayout() {
                   contentStyle: { backgroundColor: 'transparent' },
                 }}
               />
-            </PurchasesProvider>
-          </AuthProvider>
+          {/* </PurchasesProvider> */}
+          {/* </AuthProvider> */}
         </SettingsProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -7,10 +7,11 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
-import { useAuth } from '@/src/context/AuthContext';
+// import { useAuth } from '@/src/context/AuthContext';
 import { useSettings, type ThemeOverride } from '@/src/context/SettingsContext';
 import { NATIVE_LANGUAGES } from './welcome';
-import { usePurchases } from '@/src/context/PurchasesContext';
+// import { usePurchases } from '@/src/context/PurchasesContext';
+import { VOICE_OPTIONS, ttsSpeak, type OpenAIVoice } from '@/src/lib/openaiTts';
 
 /* ─── Section & Row helpers ────────────────────────────────────── */
 
@@ -172,18 +173,57 @@ function BandPicker() {
   );
 }
 
+/* ─── Voice picker ────────────────────────────────────────────── */
+
+function VoicePicker() {
+  const t = useTheme();
+  const { ttsVoice, setTtsVoice } = useSettings();
+
+  function handleSelect(voice: OpenAIVoice) {
+    setTtsVoice(voice);
+    // Play a short preview so the user hears the voice
+    void ttsSpeak('Hello! This is how I sound.', voice);
+  }
+
+  return (
+    <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
+      <Text style={[styles.rowLabel, { color: t.fg }]}>AI Voice</Text>
+      <View style={styles.voiceGrid}>
+        {VOICE_OPTIONS.map((opt) => {
+          const active = ttsVoice === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              onPress={() => handleSelect(opt.value)}
+              style={[
+                styles.voicePill,
+                { borderColor: active ? t.accent : t.border, backgroundColor: active ? `${t.accent}15` : t.subtle },
+              ]}
+            >
+              <Text style={[styles.voiceName, { color: active ? t.accent : t.fg }]}>{opt.label}</Text>
+              <Text style={[styles.voiceDesc, { color: t.muted }]}>{opt.description}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 /* ─── Screen ──────────────────────────────────────────────────── */
 
 export default function SettingsScreen() {
   const t                                        = useTheme();
   const router                                   = useRouter();
-  const { user, signOut }                        = useAuth();
+  // const { user, signOut }                        = useAuth(); // TODO: re-enable when auth is configured
   const { notificationsEnabled, setNotificationsEnabled } = useSettings();
-  const { isPro }                                = usePurchases();
+  // const { isPro }                                = usePurchases(); // TODO: re-enable when payment is configured
+  const isPro = false;
 
   async function handleSignOut() {
-    await signOut();
-    router.replace('/auth');
+    // TODO: re-enable when auth is configured
+    // await signOut();
+    // router.replace('/auth');
   }
 
   return (
@@ -222,7 +262,7 @@ export default function SettingsScreen() {
 
         {/* Profile */}
         <Section title="ACCOUNT">
-          <Row label={user?.email ?? 'Signed in'} last />
+          <Row label={'Guest'} last /> {/* TODO: show user?.email when auth is re-enabled */}
         </Section>
 
         {/* Appearance */}
@@ -233,6 +273,11 @@ export default function SettingsScreen() {
         {/* Language */}
         <Section title="YOUR LANGUAGE">
           <LanguagePicker />
+        </Section>
+
+        {/* Voice */}
+        <Section title="VOICE">
+          <VoicePicker />
         </Section>
 
         {/* Study */}
@@ -314,6 +359,15 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   bandChipText: { fontSize: 14, fontFamily: F.bold },
+
+  voiceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingBottom: 4 },
+  voicePill: {
+    borderRadius: 12, borderWidth: 1.5,
+    paddingHorizontal: 12, paddingVertical: 8, gap: 2,
+    minWidth: '45%' as any,
+  },
+  voiceName: { fontSize: 13, fontFamily: F.semibold },
+  voiceDesc: { fontSize: 10, fontFamily: F.regular },
 
   version: { textAlign: 'center', fontSize: 12, fontFamily: F.regular, marginTop: 8, marginBottom: 20 },
 

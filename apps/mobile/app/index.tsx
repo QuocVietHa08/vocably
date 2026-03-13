@@ -5,19 +5,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInRight, FadeOutLeft, FadeIn } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import * as Speech from 'expo-speech';
+import { ttsStop } from '@/src/lib/openaiTts';
 import { allCards, type Flashcard } from '@/src/data/flashcards';
 import { FlashCard } from '@/src/components/flashcard/FlashCard';
 import { ResultsScreen } from '@/src/components/flashcard/ResultsScreen';
 import { useFavorites } from '@/src/hooks/useFavorites';
+import { useLearnedWords } from '@/src/hooks/useLearnedWords';
 import { useSettings } from '@/src/context/SettingsContext';
-import { Mic, Settings2, BookOpen, Heart, Volume2, VolumeX, RefreshCw } from 'lucide-react-native';
+import { Mic, Settings2, BookOpen, RefreshCw, Keyboard } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-type FilterMode = 'all' | 'favorites';
+type FilterMode = 'all' | 'favorites' | 'learned';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -33,13 +34,9 @@ export default function HomeScreen() {
   const router   = useRouter();
   const { nativeLanguage } = useSettings();
   const { favoriteIds, isFavorite, toggleFavorite, loaded } = useFavorites();
-
-  // Map native language to the closest English TTS voice
-  // (everyone learning IELTS always hears English, regardless of their own language)
-  const voiceLang = 'en-US';
+  const { learnedIds, isLearned, markLearned, loaded: learnedLoaded } = useLearnedWords();
 
   const [filterMode,  setFilterMode]  = useState<FilterMode>('all');
-  const [autoSpeak,   setAutoSpeak]   = useState(false);
   const [autoRepeat,  setAutoRepeat]  = useState(false);
 
   const [cards,    setCards]    = useState<Flashcard[]>(() => shuffle(allCards));
@@ -51,23 +48,31 @@ export default function HomeScreen() {
 
   // Re-build deck when filter changes
   useEffect(() => {
-    if (!loaded) return;
-    const source = filterMode === 'favorites'
-      ? allCards.filter((c) => favoriteIds.has(c.id))
-      : allCards;
+    if (!loaded || !learnedLoaded) return;
+    let source: Flashcard[];
+    if (filterMode === 'favorites') {
+      source = allCards.filter((c) => favoriteIds.has(c.id));
+    } else if (filterMode === 'learned') {
+      source = allCards.filter((c) => learnedIds.has(c.id));
+    } else {
+      source = allCards;
+    }
     setCards(shuffle(source.length > 0 ? source : allCards));
     setIndex(0); setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
-  }, [filterMode, loaded]);
+  }, [filterMode, loaded, learnedLoaded]);
 
   const currentCard = cards[index];
   const total       = cards.length;
-  const favCount    = favoriteIds.size;
+  const favCount     = favoriteIds.size;
+  const learnedCount = learnedIds.size;
 
   const advance = useCallback((result: 'know' | 'dontknow') => {
-    Speech.stop();
+    ttsStop();
     const card = cards[index];
     if (result === 'know') {
       setKnown((n) => n + 1);
+      // Persist this word as learned
+      void markLearned(card.id);
     } else {
       setLearning((n) => n + 1);
       setMissedCards((prev) => [...prev, card]);
@@ -77,7 +82,7 @@ export default function HomeScreen() {
     } else {
       setIndex((i) => i + 1);
     }
-  }, [index, total, cards]);
+  }, [index, total, cards, markLearned]);
 
   // Auto-repeat: when done, if there are missed cards and repeat is on → loop
   useEffect(() => {
@@ -91,16 +96,21 @@ export default function HomeScreen() {
   }, [done, autoRepeat, missedCards]);
 
   const restart = () => {
-    Speech.stop();
-    const source = filterMode === 'favorites'
-      ? allCards.filter((c) => favoriteIds.has(c.id))
-      : allCards;
+    ttsStop();
+    let source: Flashcard[];
+    if (filterMode === 'favorites') {
+      source = allCards.filter((c) => favoriteIds.has(c.id));
+    } else if (filterMode === 'learned') {
+      source = allCards.filter((c) => learnedIds.has(c.id));
+    } else {
+      source = allCards;
+    }
     setCards(shuffle(source.length > 0 ? source : allCards));
     setIndex(0); setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
   };
 
   const retryMissed = (missed: Flashcard[]) => {
-    Speech.stop();
+    ttsStop();
     setCards(shuffle(missed));
     setIndex(0); setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
   };
@@ -145,6 +155,13 @@ export default function HomeScreen() {
               <BookOpen size={14} color={t.muted} strokeWidth={2.5} />
               <Text style={[styles.navBtnText, { color: t.muted }]}>Grammar</Text>
             </Pressable>
+            <Pressable
+              style={[styles.navBtn, { borderColor: t.border }]}
+              onPress={() => router.push('/typing-lesson')}
+            >
+              <Keyboard size={14} color={t.muted} strokeWidth={2.5} />
+              <Text style={[styles.navBtnText, { color: t.muted }]}>Typing</Text>
+            </Pressable>
           </View>
 
           <View style={styles.counter}>
@@ -168,20 +185,9 @@ export default function HomeScreen() {
           {/* Filter pills */}
           <View style={[styles.filterBar, { backgroundColor: t.subtle, borderColor: t.border }]}>
             <FilterBtn mode="all"       label="All" />
+            <FilterBtn mode="learned"   label="Learned" count={learnedCount > 0 ? learnedCount : undefined} />
             <FilterBtn mode="favorites" label="★ Saved" count={favCount > 0 ? favCount : undefined} />
           </View>
-
-          {/* Auto-speak toggle */}
-          <Pressable
-            style={[styles.toggleBtn, { borderColor: autoSpeak ? t.accent : t.border }]}
-            onPress={() => setAutoSpeak((v) => !v)}
-            hitSlop={8}
-          >
-            {autoSpeak
-              ? <Volume2 size={15} color={t.accent} strokeWidth={2.5} />
-              : <VolumeX   size={15} color={t.muted}   strokeWidth={2.5} />
-            }
-          </Pressable>
 
           {/* Auto-repeat toggle */}
           <Pressable
@@ -204,6 +210,17 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
+        {/* Empty learned message */}
+        {filterMode === 'learned' && learnedCount === 0 && (
+          <Animated.View entering={FadeIn} style={styles.emptyFav}>
+            <Text style={[styles.emptyFavIcon]}>🎓</Text>
+            <Text style={[styles.emptyFavText, { color: t.muted }]}>No learned words yet</Text>
+            <Text style={[styles.emptyFavHint, { color: t.muted }]}>
+              Swipe right on cards you know to build your list
+            </Text>
+          </Animated.View>
+        )}
+
         {/* ── Flash card / results ── */}
         <View style={styles.content}>
           {done ? (
@@ -215,7 +232,7 @@ export default function HomeScreen() {
               onRestart={restart}
               onRetryMissed={retryMissed}
             />
-          ) : currentCard && !(filterMode === 'favorites' && favCount === 0) ? (
+          ) : currentCard && !(filterMode === 'favorites' && favCount === 0) && !(filterMode === 'learned' && learnedCount === 0) ? (
             <Animated.View
               key={index}
               entering={FadeInRight.duration(180)}
@@ -227,15 +244,13 @@ export default function HomeScreen() {
                 onDontKnow={() => advance('dontknow')}
                 isFavorite={isFavorite(currentCard.id)}
                 onToggleFavorite={handleToggleFavorite}
-                autoSpeak={autoSpeak}
-                voiceLang={voiceLang}
               />
             </Animated.View>
           ) : null}
         </View>
 
         {/* Swipe hint + repeat badge */}
-        {!done && index === 0 && !(filterMode === 'favorites' && favCount === 0) && (
+        {!done && index === 0 && !(filterMode === 'favorites' && favCount === 0) && !(filterMode === 'learned' && learnedCount === 0) && (
           <View style={styles.swipeHint}>
             <Text style={[styles.swipeHintText, { color: t.muted }]}>
               ← again  ·  tap to flip  ·  know →

@@ -8,6 +8,7 @@ export interface Flashcard {
   partOfSpeech?: string;
   definition: string;
   example: string;
+  examples?: string[];  // 1-2 extra example sentences shown on the back
   difficulty: Difficulty;
   category: Category;
   band?: number; // IELTS band score (5–9)
@@ -39,6 +40,10 @@ export const decks: Deck[] = [
         partOfSpeech: "conjunction",
         definition: "Although; even though — used to introduce a concession.",
         example: "The task was completed, albeit with some difficulty.",
+        examples: [
+          "He accepted the job, albeit reluctantly.",
+          "The results were positive, albeit slightly below expectations.",
+        ],
         difficulty: "medium",
         category: "vocabulary",
         band: 7,
@@ -52,6 +57,10 @@ export const decks: Deck[] = [
         partOfSpeech: "adjective",
         definition: "Open to more than one interpretation; not having one obvious meaning.",
         example: "The politician gave an ambiguous answer that satisfied no one.",
+        examples: [
+          "The instructions were ambiguous, so several students misunderstood.",
+          "Her ambiguous smile made it impossible to tell if she was joking.",
+        ],
         difficulty: "medium",
         category: "vocabulary",
         band: 7,
@@ -65,6 +74,10 @@ export const decks: Deck[] = [
         partOfSpeech: "verb",
         definition: "To provide evidence to support or prove the truth of something.",
         example: "The researcher failed to substantiate her claims with data.",
+        examples: [
+          "Can you substantiate your argument with reliable sources?",
+          "The allegations were never substantiated by the investigation.",
+        ],
         difficulty: "hard",
         category: "vocabulary",
         band: 8,
@@ -78,6 +91,10 @@ export const decks: Deck[] = [
         partOfSpeech: "verb",
         definition: "To cause something to continue indefinitely; to make something last.",
         example: "Poverty can perpetuate social inequality across generations.",
+        examples: [
+          "Media stereotypes perpetuate harmful misconceptions about minorities.",
+          "Outdated policies perpetuate the cycle of dependency.",
+        ],
         difficulty: "hard",
         category: "vocabulary",
         band: 8,
@@ -91,6 +108,10 @@ export const decks: Deck[] = [
         partOfSpeech: "verb",
         definition: "To make something less severe, serious, or painful.",
         example: "Planting trees can mitigate the effects of urban heat islands.",
+        examples: [
+          "Wearing sunscreen helps mitigate the risk of skin damage.",
+          "The government introduced subsidies to mitigate rising food costs.",
+        ],
         difficulty: "medium",
         category: "vocabulary",
         band: 7,
@@ -104,6 +125,10 @@ export const decks: Deck[] = [
         partOfSpeech: "adjective",
         definition: "More important than anything else; supreme.",
         example: "It is of paramount importance that we address climate change now.",
+        examples: [
+          "Safety should be paramount when designing public transport systems.",
+          "Education is paramount to economic development in developing nations.",
+        ],
         difficulty: "medium",
         category: "vocabulary",
         band: 7,
@@ -117,6 +142,10 @@ export const decks: Deck[] = [
         partOfSpeech: "verb",
         definition: "To make a problem, bad situation, or negative feeling worse.",
         example: "The drought was exacerbated by poor water management policies.",
+        examples: [
+          "Social media can exacerbate feelings of loneliness among teenagers.",
+          "Traffic congestion is exacerbated by a lack of public transport.",
+        ],
         difficulty: "hard",
         category: "vocabulary",
         band: 8,
@@ -130,6 +159,10 @@ export const decks: Deck[] = [
         partOfSpeech: "adjective",
         definition: "Seeming to appear everywhere or in many places simultaneously.",
         example: "Smartphones have become ubiquitous in modern society.",
+        examples: [
+          "Fast-food chains are now ubiquitous in cities around the world.",
+          "The ubiquitous use of plastic has led to a global pollution crisis.",
+        ],
         difficulty: "hard",
         category: "vocabulary",
         band: 8,
@@ -151,6 +184,10 @@ export const decks: Deck[] = [
         partOfSpeech: "idiom",
         definition: "To work or study late into the night.",
         example: "Students often burn the midnight oil before important exams.",
+        examples: [
+          "I had to burn the midnight oil to finish the report on time.",
+          "She's been burning the midnight oil preparing for her IELTS test.",
+        ],
         difficulty: "easy",
         category: "idiom",
         band: 6,
@@ -162,6 +199,10 @@ export const decks: Deck[] = [
         partOfSpeech: "idiom",
         definition: "To describe exactly what is causing a situation or problem.",
         example: "She hit the nail on the head when she blamed poor infrastructure.",
+        examples: [
+          "You hit the nail on the head — the real issue is funding.",
+          "The report hit the nail on the head about youth unemployment.",
+        ],
         difficulty: "easy",
         category: "idiom",
         band: 6,
@@ -173,6 +214,10 @@ export const decks: Deck[] = [
         partOfSpeech: "idiom",
         definition: "Something that has both advantages and disadvantages.",
         example: "Social media is a double-edged sword for young people.",
+        examples: [
+          "Tourism can be a double-edged sword for local communities.",
+          "Technology in classrooms is a double-edged sword — helpful but distracting.",
+        ],
         difficulty: "medium",
         category: "idiom",
         band: 7,
@@ -184,6 +229,10 @@ export const decks: Deck[] = [
         partOfSpeech: "idiom",
         definition: "To ignore something that you know is happening.",
         example: "Governments often turn a blind eye to corporate tax avoidance.",
+        examples: [
+          "Parents sometimes turn a blind eye to their children's screen time.",
+          "We cannot turn a blind eye to environmental destruction.",
+        ],
         difficulty: "medium",
         category: "idiom",
         band: 7,
@@ -195,6 +244,10 @@ export const decks: Deck[] = [
         partOfSpeech: "idiom",
         definition: "In the same difficult situation as someone else.",
         example: "During the pandemic, people around the world were in the same boat.",
+        examples: [
+          "Don't worry — all the new students are in the same boat.",
+          "Small businesses are all in the same boat when it comes to rising costs.",
+        ],
         difficulty: "easy",
         category: "idiom",
         band: 6,
@@ -206,6 +259,10 @@ export const decks: Deck[] = [
         partOfSpeech: "idiom",
         definition: "A small visible part of a much larger, unseen problem.",
         example: "The reported cases of corruption are just the tip of the iceberg.",
+        examples: [
+          "These statistics are just the tip of the iceberg — many cases go unreported.",
+          "The visible pollution in the river is only the tip of the iceberg.",
+        ],
         difficulty: "medium",
         category: "idiom",
         band: 7,
@@ -226,6 +283,10 @@ export const decks: Deck[] = [
         partOfSpeech: "collocation",
         definition: "To increase public knowledge or understanding about an issue.",
         example: "Campaigns can raise awareness of the dangers of plastic pollution.",
+        examples: [
+          "Schools should raise awareness about mental health among students.",
+          "Social media influencers can raise awareness of important causes.",
+        ],
         difficulty: "easy",
         category: "collocation",
         band: 6,
@@ -237,6 +298,10 @@ export const decks: Deck[] = [
         partOfSpeech: "collocation",
         definition: "To come to a general agreement within a group.",
         example: "World leaders struggled to reach a consensus on climate targets.",
+        examples: [
+          "The committee finally reached a consensus after hours of debate.",
+          "It is difficult to reach a consensus when opinions are polarised.",
+        ],
         difficulty: "medium",
         category: "collocation",
         band: 7,
@@ -248,6 +313,10 @@ export const decks: Deck[] = [
         partOfSpeech: "collocation",
         definition: "To represent a danger or risk to something.",
         example: "Rising sea levels pose a significant threat to coastal cities.",
+        examples: [
+          "Artificial intelligence could pose a threat to certain job markets.",
+          "Deforestation poses a serious threat to biodiversity.",
+        ],
         difficulty: "medium",
         category: "collocation",
         band: 7,
@@ -259,6 +328,10 @@ export const decks: Deck[] = [
         partOfSpeech: "collocation",
         definition: "To be extremely important in making something happen.",
         example: "Education plays a pivotal role in reducing poverty.",
+        examples: [
+          "Parents play a pivotal role in shaping a child's values.",
+          "Technology plays a pivotal role in modern healthcare delivery.",
+        ],
         difficulty: "medium",
         category: "collocation",
         band: 7,
@@ -270,6 +343,10 @@ export const decks: Deck[] = [
         partOfSpeech: "collocation",
         definition: "To make a determined effort to deal with a problem.",
         example: "Governments must tackle the issue of youth unemployment urgently.",
+        examples: [
+          "Communities should work together to tackle the issue of food waste.",
+          "New legislation aims to tackle the issue of online privacy.",
+        ],
         difficulty: "easy",
         category: "collocation",
         band: 6,
@@ -281,6 +358,10 @@ export const decks: Deck[] = [
         partOfSpeech: "collocation",
         definition: "To reduce the differences between two groups or things.",
         example: "Online education can help bridge the gap between rich and poor.",
+        examples: [
+          "Mentorship programmes bridge the gap between students and employers.",
+          "Affordable internet access can bridge the gap in digital literacy.",
+        ],
         difficulty: "medium",
         category: "collocation",
         band: 7,
@@ -301,6 +382,10 @@ export const decks: Deck[] = [
         partOfSpeech: "phrasal verb",
         definition: "To explain the reason for something; to make up a portion of something.",
         example: "Renewable energy now accounts for 30% of total power generation.",
+        examples: [
+          "How do you account for the sudden rise in expenses?",
+          "Women account for nearly half of the workforce in this sector.",
+        ],
         difficulty: "easy",
         category: "phrasal-verb",
         band: 6,
@@ -312,6 +397,10 @@ export const decks: Deck[] = [
         partOfSpeech: "phrasal verb",
         definition: "To have a particular cause or origin.",
         example: "Many social problems stem from a lack of access to education.",
+        examples: [
+          "His confidence stems from years of dedicated practice.",
+          "The conflict stems from deep-rooted cultural differences.",
+        ],
         difficulty: "medium",
         category: "phrasal-verb",
         band: 7,
@@ -324,6 +413,10 @@ export const decks: Deck[] = [
         partOfSpeech: "phrasal verb",
         definition: "To cause something to happen or exist.",
         example: "Rapid urbanisation has given rise to severe traffic congestion.",
+        examples: [
+          "The new policy gave rise to widespread public debate.",
+          "Income inequality can give rise to social unrest.",
+        ],
         difficulty: "medium",
         category: "phrasal-verb",
         band: 7,
@@ -336,6 +429,10 @@ export const decks: Deck[] = [
         partOfSpeech: "phrasal verb",
         definition: "To use something as a basis for further development.",
         example: "We should build upon the success of renewable energy initiatives.",
+        examples: [
+          "The new curriculum builds upon the skills learned in the first year.",
+          "Scientists continue to build upon earlier discoveries in genetics.",
+        ],
         difficulty: "easy",
         category: "phrasal-verb",
         band: 6,

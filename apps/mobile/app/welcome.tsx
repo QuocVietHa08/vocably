@@ -235,7 +235,8 @@ export default function WelcomeScreen() {
   async function finish() {
     if (langSel) setNativeLanguage(langSel);
     await AsyncStorage.setItem(WELCOME_SEEN_KEY, 'true');
-    router.replace('/auth');
+    // router.replace('/auth'); // TODO: re-enable when auth is configured
+    router.replace('/');
   }
 
   function next() {

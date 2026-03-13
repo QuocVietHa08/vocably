@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SettingsContext as ThemeBridgeContext } from '@/src/theme/themeContext';
+import type { OpenAIVoice } from '@/src/lib/openaiTts';
 
 /* ─── Types ───────────────────────────────────────────────────── */
 
@@ -11,10 +12,12 @@ interface SettingsValue {
   targetBand:              number;          // IELTS 5–9
   notificationsEnabled:    boolean;
   nativeLanguage:          string;          // e.g. 'vi', 'zh', 'ja' …  '' = not yet set
+  ttsVoice:                OpenAIVoice;     // OpenAI TTS voice
   setThemeOverride:        (v: ThemeOverride) => void;
   setTargetBand:           (v: number) => void;
   setNotificationsEnabled: (v: boolean) => void;
   setNativeLanguage:       (v: string) => void;
+  setTtsVoice:             (v: OpenAIVoice) => void;
 }
 
 const DEFAULTS = {
@@ -22,6 +25,7 @@ const DEFAULTS = {
   targetBand:           7,
   notificationsEnabled: true,
   nativeLanguage:       '',
+  ttsVoice:             'nova' as OpenAIVoice,
 };
 
 const SettingsContext = createContext<SettingsValue>({
@@ -30,6 +34,7 @@ const SettingsContext = createContext<SettingsValue>({
   setTargetBand:           () => {},
   setNotificationsEnabled: () => {},
   setNativeLanguage:       () => {},
+  setTtsVoice:             () => {},
 });
 
 const STORAGE_KEY = '@vocally/settings';
@@ -41,6 +46,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [targetBand,           setTargetBandState]           = useState(DEFAULTS.targetBand);
   const [notificationsEnabled, setNotificationsEnabledState] = useState(DEFAULTS.notificationsEnabled);
   const [nativeLanguage,       setNativeLanguageState]       = useState(DEFAULTS.nativeLanguage);
+  const [ttsVoice,             setTtsVoiceState]             = useState<OpenAIVoice>(DEFAULTS.ttsVoice);
 
   // Load from storage once on mount
   useEffect(() => {
@@ -52,12 +58,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (saved.targetBand != null)           setTargetBandState(saved.targetBand);
         if (saved.notificationsEnabled != null) setNotificationsEnabledState(saved.notificationsEnabled);
         if (saved.nativeLanguage)               setNativeLanguageState(saved.nativeLanguage);
+        if (saved.ttsVoice)                     setTtsVoiceState(saved.ttsVoice);
       } catch {}
     });
   }, []);
 
   function persist(patch: Partial<typeof DEFAULTS>) {
-    const current = { themeOverride, targetBand, notificationsEnabled, nativeLanguage };
+    const current = { themeOverride, targetBand, notificationsEnabled, nativeLanguage, ttsVoice };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...patch }));
   }
 
@@ -77,12 +84,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setNativeLanguageState(v);
     persist({ nativeLanguage: v });
   }
+  function setTtsVoice(v: OpenAIVoice) {
+    setTtsVoiceState(v);
+    persist({ ttsVoice: v });
+  }
 
   return (
     <ThemeBridgeContext.Provider value={themeOverride}>
       <SettingsContext.Provider value={{
-        themeOverride, targetBand, notificationsEnabled, nativeLanguage,
-        setThemeOverride, setTargetBand, setNotificationsEnabled, setNativeLanguage,
+        themeOverride, targetBand, notificationsEnabled, nativeLanguage, ttsVoice,
+        setThemeOverride, setTargetBand, setNotificationsEnabled, setNativeLanguage, setTtsVoice,
       }}>
         {children}
       </SettingsContext.Provider>

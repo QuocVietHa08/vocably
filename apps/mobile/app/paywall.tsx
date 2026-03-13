@@ -5,8 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import type { PurchasesPackage } from 'react-native-purchases';
-import { PACKAGE_TYPE } from 'react-native-purchases';
+// import type { PurchasesPackage } from 'react-native-purchases';
+// import { PACKAGE_TYPE } from 'react-native-purchases';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 import { usePurchases } from '@/src/context/PurchasesContext';
@@ -29,38 +29,45 @@ export default function PaywallScreen() {
   const { offering, purchasing, purchase, restore } = usePurchases();
   const [selected, setSelected]               = useState<'monthly' | 'yearly'>('yearly');
 
+  // TODO: re-enable when payment is configured
   // Pick packages from the current offering
-  const monthlyPkg = offering?.availablePackages.find(
-    (p) => p.packageType === PACKAGE_TYPE.MONTHLY,
-  );
-  const yearlyPkg = offering?.availablePackages.find(
-    (p) => p.packageType === PACKAGE_TYPE.ANNUAL,
-  );
+  // const monthlyPkg = offering?.availablePackages.find(
+  //   (p) => p.packageType === PACKAGE_TYPE.MONTHLY,
+  // );
+  // const yearlyPkg = offering?.availablePackages.find(
+  //   (p) => p.packageType === PACKAGE_TYPE.ANNUAL,
+  // );
+  // const selectedPkg: PurchasesPackage | undefined =
+  //   selected === 'monthly' ? monthlyPkg : yearlyPkg;
+  const monthlyPkg: any = null;
+  const yearlyPkg: any = null;
+  const selectedPkg: any = null;
 
-  const selectedPkg: PurchasesPackage | undefined =
-    selected === 'monthly' ? monthlyPkg : yearlyPkg;
-
-  const monthlyPrice = monthlyPkg?.product.priceString ?? '$9.99';
-  const yearlyPrice  = yearlyPkg?.product.priceString  ?? '$59.99';
+  const monthlyPrice = monthlyPkg?.product?.priceString ?? '$5.99';
+  const yearlyPrice  = yearlyPkg?.product?.priceString  ?? '$49.99';
 
   // Compute monthly equivalent for yearly (for badge)
   const yearlyMonthly = yearlyPkg
     ? `$${(yearlyPkg.product.price / 12).toFixed(2)}/mo`
-    : '$4.99/mo';
+    : '$4.17/mo';
 
   async function handlePurchase() {
-    if (!selectedPkg) return;
-    const ok = await purchase(selectedPkg);
-    if (ok) router.back();
+    // TODO: re-enable when payment is configured
+    // if (!selectedPkg) return;
+    // const ok = await purchase(selectedPkg);
+    // if (ok) router.back();
+    Alert.alert('Coming soon', 'Payment is not yet configured.');
   }
 
   async function handleRestore() {
-    const ok = await restore();
-    if (ok) {
-      router.back();
-    } else {
-      Alert.alert('No purchases found', 'We couldn\'t find any previous purchases for this account.');
-    }
+    // TODO: re-enable when payment is configured
+    // const ok = await restore();
+    // if (ok) {
+    //   router.back();
+    // } else {
+    //   Alert.alert('No purchases found', 'We couldn\'t find any previous purchases for this account.');
+    // }
+    Alert.alert('Coming soon', 'Payment is not yet configured.');
   }
 
   return (
