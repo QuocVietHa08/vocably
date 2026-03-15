@@ -15,6 +15,7 @@ import {
   Nunito_800ExtraBold,
 } from '@expo-google-fonts/nunito';
 
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SettingsProvider } from '@/src/context/SettingsContext';
 // import { AuthProvider, useAuth } from '@/src/context/AuthContext';
 // import { PurchasesProvider } from '@/src/context/PurchasesContext';
@@ -33,6 +34,9 @@ function NavigationGuard() {
 
   // Load welcome flag
   useEffect(() => {
+    // TODO: Remove this line after testing onboarding
+    AsyncStorage.removeItem(WELCOME_SEEN_KEY);
+
     AsyncStorage.getItem(WELCOME_SEEN_KEY).then((val) => {
       setWelcomeSeen(val === 'true');
     });
@@ -79,6 +83,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
+        <KeyboardProvider>
         <SettingsProvider>
           {/* <AuthProvider> */}
           {/* <PurchasesProvider> */}
@@ -94,6 +99,7 @@ export default function RootLayout() {
           {/* </PurchasesProvider> */}
           {/* </AuthProvider> */}
         </SettingsProvider>
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

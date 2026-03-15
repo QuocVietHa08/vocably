@@ -10,65 +10,43 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 import { usePurchases } from '@/src/context/PurchasesContext';
-
-/* ─── Benefits list ───────────────────────────────────────────── */
-
-const BENEFITS = [
-  { icon: '🎙', text: 'Unlimited AI speaking sessions' },
-  { icon: '✦',  text: 'Instant grammar & band score feedback' },
-  { icon: '📌', text: 'Save vocab from every session' },
-  { icon: '📚', text: 'Full flashcard library — 500+ IELTS words' },
-  { icon: '🎯', text: 'Personalised topic suggestions' },
-];
+import { useT } from '@/src/i18n/useT';
 
 /* ─── Screen ──────────────────────────────────────────────────── */
 
 export default function PaywallScreen() {
   const t                                     = useTheme();
+  const T                                     = useT();
   const router                                = useRouter();
   const { offering, purchasing, purchase, restore } = usePurchases();
   const [selected, setSelected]               = useState<'monthly' | 'yearly'>('yearly');
 
   // TODO: re-enable when payment is configured
-  // Pick packages from the current offering
-  // const monthlyPkg = offering?.availablePackages.find(
-  //   (p) => p.packageType === PACKAGE_TYPE.MONTHLY,
-  // );
-  // const yearlyPkg = offering?.availablePackages.find(
-  //   (p) => p.packageType === PACKAGE_TYPE.ANNUAL,
-  // );
-  // const selectedPkg: PurchasesPackage | undefined =
-  //   selected === 'monthly' ? monthlyPkg : yearlyPkg;
   const monthlyPkg: any = null;
-  const yearlyPkg: any = null;
+  const yearlyPkg: any  = null;
   const selectedPkg: any = null;
 
-  const monthlyPrice = monthlyPkg?.product?.priceString ?? '$5.99';
-  const yearlyPrice  = yearlyPkg?.product?.priceString  ?? '$49.99';
-
-  // Compute monthly equivalent for yearly (for badge)
+  const monthlyPrice  = monthlyPkg?.product?.priceString ?? '$5.99';
+  const yearlyPrice   = yearlyPkg?.product?.priceString  ?? '$49.99';
   const yearlyMonthly = yearlyPkg
     ? `$${(yearlyPkg.product.price / 12).toFixed(2)}/mo`
     : '$4.17/mo';
 
   async function handlePurchase() {
-    // TODO: re-enable when payment is configured
-    // if (!selectedPkg) return;
-    // const ok = await purchase(selectedPkg);
-    // if (ok) router.back();
     Alert.alert('Coming soon', 'Payment is not yet configured.');
   }
 
   async function handleRestore() {
-    // TODO: re-enable when payment is configured
-    // const ok = await restore();
-    // if (ok) {
-    //   router.back();
-    // } else {
-    //   Alert.alert('No purchases found', 'We couldn\'t find any previous purchases for this account.');
-    // }
     Alert.alert('Coming soon', 'Payment is not yet configured.');
   }
+
+  const BENEFITS = [
+    { icon: '🎙', text: T.paywallBenefit1 },
+    { icon: '✦',  text: T.paywallBenefit2 },
+    { icon: '📌', text: T.paywallBenefit3 },
+    { icon: '📚', text: T.paywallBenefit4 },
+    { icon: '🎯', text: T.paywallBenefit5 },
+  ];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]}>
@@ -84,15 +62,13 @@ export default function PaywallScreen() {
       >
         {/* Hero */}
         <View style={styles.hero}>
-          <View style={[styles.badgeRow]}>
+          <View style={styles.badgeRow}>
             <View style={[styles.proBadge, { backgroundColor: t.accent }]}>
               <Text style={styles.proBadgeText}>PRO</Text>
             </View>
           </View>
-          <Text style={[styles.title, { color: t.fg }]}>Unlock Your{'\n'}Band 7+ Potential</Text>
-          <Text style={[styles.subtitle, { color: t.muted }]}>
-            Everything you need to ace the IELTS speaking test.
-          </Text>
+          <Text style={[styles.title, { color: t.fg }]}>{T.paywallTitle}</Text>
+          <Text style={[styles.subtitle, { color: t.muted }]}>{T.paywallSubtitle}</Text>
         </View>
 
         {/* Benefits */}
@@ -129,13 +105,13 @@ export default function PaywallScreen() {
                   <View style={[styles.radio, { borderColor: selected === 'yearly' ? t.accent : t.muted }]}>
                     {selected === 'yearly' && <View style={[styles.radioDot, { backgroundColor: t.accent }]} />}
                   </View>
-                  <Text style={[styles.planLabel, { color: t.fg }]}>Yearly</Text>
+                  <Text style={[styles.planLabel, { color: t.fg }]}>{T.planYearly}</Text>
                   <View style={[styles.saveBadge, { backgroundColor: `${t.accent}22` }]}>
-                    <Text style={[styles.saveBadgeText, { color: t.accent }]}>Best Value</Text>
+                    <Text style={[styles.saveBadgeText, { color: t.accent }]}>{T.planBestValue}</Text>
                   </View>
                 </View>
                 <Text style={[styles.planSubLabel, { color: t.muted }]}>
-                  {yearlyMonthly} · billed annually
+                  {yearlyMonthly} · {T.planBilledAnnual}
                 </Text>
               </View>
               <Text style={[styles.planPrice, { color: t.fg }]}>{yearlyPrice}</Text>
@@ -156,9 +132,9 @@ export default function PaywallScreen() {
                   <View style={[styles.radio, { borderColor: selected === 'monthly' ? t.accent : t.muted }]}>
                     {selected === 'monthly' && <View style={[styles.radioDot, { backgroundColor: t.accent }]} />}
                   </View>
-                  <Text style={[styles.planLabel, { color: t.fg }]}>Monthly</Text>
+                  <Text style={[styles.planLabel, { color: t.fg }]}>{T.planMonthly}</Text>
                 </View>
-                <Text style={[styles.planSubLabel, { color: t.muted }]}>billed every month</Text>
+                <Text style={[styles.planSubLabel, { color: t.muted }]}>{T.planBilledMonthly}</Text>
               </View>
               <Text style={[styles.planPrice, { color: t.fg }]}>{monthlyPrice}</Text>
             </View>
@@ -179,25 +155,23 @@ export default function PaywallScreen() {
             ? <ActivityIndicator color="#fff" />
             : <Text style={styles.ctaBtnText}>
                 {selected === 'yearly'
-                  ? `Start for ${yearlyPrice}/year`
-                  : `Start for ${monthlyPrice}/month`}
+                  ? `${T.ctaStartFor}${yearlyPrice}${T.ctaPerYear}`
+                  : `${T.ctaStartFor}${monthlyPrice}${T.ctaPerMonth}`}
               </Text>
           }
         </Pressable>
 
-        <Text style={[styles.trial, { color: t.muted }]}>
-          Cancel anytime · No commitment
-        </Text>
+        <Text style={[styles.trial, { color: t.muted }]}>{T.cancelAnytime}</Text>
 
         {/* Footer links */}
         <View style={styles.footerLinks}>
           <Pressable onPress={handleRestore}>
-            <Text style={[styles.footerLink, { color: t.muted }]}>Restore Purchases</Text>
+            <Text style={[styles.footerLink, { color: t.muted }]}>{T.restorePurchases}</Text>
           </Pressable>
           <Text style={[styles.footerDot, { color: t.muted }]}>·</Text>
-          <Text style={[styles.footerLink, { color: t.muted }]}>Terms</Text>
+          <Text style={[styles.footerLink, { color: t.muted }]}>{T.termsLabel}</Text>
           <Text style={[styles.footerDot, { color: t.muted }]}>·</Text>
-          <Text style={[styles.footerLink, { color: t.muted }]}>Privacy</Text>
+          <Text style={[styles.footerLink, { color: t.muted }]}>{T.privacyLabel}</Text>
         </View>
 
       </ScrollView>

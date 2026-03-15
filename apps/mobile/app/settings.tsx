@@ -9,6 +9,7 @@ import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 // import { useAuth } from '@/src/context/AuthContext';
 import { useSettings, type ThemeOverride } from '@/src/context/SettingsContext';
+import { useT } from '@/src/i18n/useT';
 import { NATIVE_LANGUAGES } from './welcome';
 // import { usePurchases } from '@/src/context/PurchasesContext';
 import { VOICE_OPTIONS, ttsSpeak, type OpenAIVoice } from '@/src/lib/openaiTts';
@@ -19,7 +20,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   const t = useTheme();
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: t.muted }]}>{title}</Text>
+      {title ? (
+        <Text style={[styles.sectionTitle, { color: t.muted }]}>{title}</Text>
+      ) : null}
       <View style={[styles.sectionCard, { backgroundColor: t.surface, borderColor: t.border }]}>
         {children}
       </View>
@@ -78,11 +81,18 @@ const THEME_OPTIONS: { value: ThemeOverride; label: string }[] = [
 
 function ThemePicker() {
   const t = useTheme();
+  const T = useT();
   const { themeOverride, setThemeOverride } = useSettings();
+
+  const themeLabels: Record<ThemeOverride, string> = {
+    system: T.themeSystem,
+    light:  T.themeLight,
+    dark:   T.themeDark,
+  };
 
   return (
     <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
-      <Text style={[styles.rowLabel, { color: t.fg }]}>Appearance</Text>
+      <Text style={[styles.rowLabel, { color: t.fg }]}>{T.appearanceLabel}</Text>
       <View style={styles.themeOptions}>
         {THEME_OPTIONS.map((opt) => {
           const active = themeOverride === opt.value;
@@ -96,7 +106,7 @@ function ThemePicker() {
               ]}
             >
               <Text style={[styles.themeChipText, { color: active ? t.accent : t.muted }]}>
-                {opt.label}
+                {themeLabels[opt.value]}
               </Text>
             </Pressable>
           );
@@ -110,11 +120,12 @@ function ThemePicker() {
 
 function LanguagePicker() {
   const t = useTheme();
+  const T = useT();
   const { nativeLanguage, setNativeLanguage } = useSettings();
 
   return (
     <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
-      <Text style={[styles.rowLabel, { color: t.fg }]}>Your Language</Text>
+      <Text style={[styles.rowLabel, { color: t.fg }]}>{T.languageLabel}</Text>
       <View style={styles.langGrid}>
         {NATIVE_LANGUAGES.map((lang) => {
           const active = nativeLanguage === lang.code;
@@ -143,11 +154,12 @@ const BANDS = [5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9];
 
 function BandPicker() {
   const t = useTheme();
+  const T = useT();
   const { targetBand, setTargetBand } = useSettings();
 
   return (
     <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
-      <Text style={[styles.rowLabel, { color: t.fg }]}>Target Band</Text>
+      <Text style={[styles.rowLabel, { color: t.fg }]}>{T.targetBand}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
         <View style={styles.bandRow}>
           {BANDS.map((b) => {
@@ -177,6 +189,7 @@ function BandPicker() {
 
 function VoicePicker() {
   const t = useTheme();
+  const T = useT();
   const { ttsVoice, setTtsVoice } = useSettings();
 
   function handleSelect(voice: OpenAIVoice) {
@@ -187,7 +200,7 @@ function VoicePicker() {
 
   return (
     <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
-      <Text style={[styles.rowLabel, { color: t.fg }]}>AI Voice</Text>
+      <Text style={[styles.rowLabel, { color: t.fg }]}>{T.voiceLabel}</Text>
       <View style={styles.voiceGrid}>
         {VOICE_OPTIONS.map((opt) => {
           const active = ttsVoice === opt.value;
@@ -214,6 +227,7 @@ function VoicePicker() {
 
 export default function SettingsScreen() {
   const t                                        = useTheme();
+  const T                                        = useT();
   const router                                   = useRouter();
   // const { user, signOut }                        = useAuth(); // TODO: re-enable when auth is configured
   const { notificationsEnabled, setNotificationsEnabled } = useSettings();
@@ -234,7 +248,7 @@ export default function SettingsScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={t.accent} strokeWidth={2.5} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: t.fg }]}>Settings</Text>
+        <Text style={[styles.headerTitle, { color: t.fg }]}>{T.settingsTitle}</Text>
         <View style={styles.backBtn} />
       </View>
 
@@ -247,8 +261,8 @@ export default function SettingsScreen() {
             style={[styles.proBanner, { backgroundColor: t.accent }]}
           >
             <View>
-              <Text style={styles.proBannerTitle}>Upgrade to Pro ✦</Text>
-              <Text style={styles.proBannerSub}>Unlimited sessions · Full vocab library</Text>
+              <Text style={styles.proBannerTitle}>{T.upgradeTitle}</Text>
+              <Text style={styles.proBannerSub}>{T.upgradeSub}</Text>
             </View>
             <ChevronRight size={22} color="#fff" strokeWidth={2.5} />
           </Pressable>
@@ -256,39 +270,40 @@ export default function SettingsScreen() {
 
         {isPro && (
           <View style={[styles.proActiveBanner, { backgroundColor: `${t.accent}18`, borderColor: t.accent }]}>
-            <Text style={[styles.proActivText, { color: t.accent }]}>✦ Pro — Active</Text>
+            <Text style={[styles.proActivText, { color: t.accent }]}>{T.proActive}</Text>
           </View>
         )}
 
         {/* Profile */}
-        <Section title="ACCOUNT">
-          <Row label={'Guest'} last /> {/* TODO: show user?.email when auth is re-enabled */}
+        <Section title={T.sectionAccount}>
+          {/* TODO: show user?.email when auth is re-enabled */}
+          <Row label={'Guest'} last />
         </Section>
 
         {/* Appearance */}
-        <Section title="APPEARANCE">
+        <Section title={T.sectionAppearance}>
           <ThemePicker />
         </Section>
 
         {/* Language */}
-        <Section title="YOUR LANGUAGE">
+        <Section title={T.sectionLanguage}>
           <LanguagePicker />
         </Section>
 
         {/* Voice */}
-        <Section title="VOICE">
+        <Section title={T.sectionVoice}>
           <VoicePicker />
         </Section>
 
         {/* Study */}
-        <Section title="STUDY GOALS">
+        <Section title={T.sectionStudy}>
           <BandPicker />
         </Section>
 
         {/* Notifications */}
-        <Section title="NOTIFICATIONS">
+        <Section title={T.sectionNotifications}>
           <SwitchRow
-            label="Daily study reminders"
+            label={T.dailyReminders}
             value={notificationsEnabled}
             onChange={setNotificationsEnabled}
             last
@@ -297,7 +312,7 @@ export default function SettingsScreen() {
 
         {/* Sign out */}
         <Section title="">
-          <Row label="Sign Out" onPress={handleSignOut} danger last />
+          <Row label={T.signOut} onPress={handleSignOut} danger last />
         </Section>
 
         <Text style={[styles.version, { color: t.muted }]}>Vocally · v1.0.0</Text>

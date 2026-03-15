@@ -11,8 +11,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChevronLeft, Check, X, Sparkles, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
+import { useT } from '@/src/i18n/useT';
 import { ALL_LESSONS, LEVEL_COLORS } from '@/src/data/grammar';
 import type { GrammarLesson } from '@/src/data/grammar';
+
+/** Replace {0}, {1}, … placeholders in a translated template string */
+function tFmt(template: string, ...args: (string | number)[]): string {
+  return args.reduce<string>((s, arg, i) => s.replace(`{${i}}`, String(arg)), template);
+}
 
 /* ─── Config ─────────────────────────────────────────────────── */
 
@@ -96,9 +102,10 @@ function ProgressBar({ step }: { step: Step }) {
 
 /* ─── Step: Learn ────────────────────────────────────────────── */
 
-function LearnStep({ lesson, t, onNext }: {
+function LearnStep({ lesson, t, T, onNext }: {
   lesson: GrammarLesson;
   t: ReturnType<typeof useTheme>;
+  T: ReturnType<typeof useT>;
   onNext: () => void;
 }) {
   const color = LEVEL_COLORS[lesson.level];
@@ -125,7 +132,7 @@ function LearnStep({ lesson, t, onNext }: {
 
         {/* Examples */}
         <Animated.View entering={FadeInDown.delay(180).duration(300)}>
-          <Text style={[styles.sectionLabel, { color: t.muted }]}>EXAMPLES</Text>
+          <Text style={[styles.sectionLabel, { color: t.muted }]}>{T.grammarExamples}</Text>
           {lesson.examples.map((ex, i) => (
             <View key={i} style={[styles.exampleRow, { backgroundColor: t.surface, borderColor: t.border }]}>
               <Text style={[styles.exampleSentence, { color: t.fg }]}>{ex.sentence}</Text>
@@ -142,7 +149,7 @@ function LearnStep({ lesson, t, onNext }: {
       {/* Sticky CTA */}
       <View style={[styles.stickyFooter, { borderTopColor: t.border, backgroundColor: t.bg }]}>
         <Pressable style={[styles.ctaBtn, { backgroundColor: t.fg }]} onPress={onNext}>
-          <Text style={[styles.ctaBtnText, { color: t.bg }]}>Start Quiz</Text>
+          <Text style={[styles.ctaBtnText, { color: t.bg }]}>{T.grammarStartQuiz}</Text>
           <ChevronRight size={18} color={t.bg} strokeWidth={2.5} />
         </Pressable>
       </View>
@@ -152,9 +159,10 @@ function LearnStep({ lesson, t, onNext }: {
 
 /* ─── Step: Quiz ─────────────────────────────────────────────── */
 
-function QuizStep({ lesson, t, onComplete }: {
+function QuizStep({ lesson, t, T, onComplete }: {
   lesson: GrammarLesson;
   t: ReturnType<typeof useTheme>;
+  T: ReturnType<typeof useT>;
   onComplete: (score: number) => void;
 }) {
   const [qIndex,   setQIndex]   = useState(0);
@@ -194,7 +202,7 @@ function QuizStep({ lesson, t, onComplete }: {
         {/* Progress indicator */}
         <View style={styles.quizMeta}>
           <Text style={[styles.quizCounter, { color: t.muted }]}>
-            Question {qIndex + 1} of {totalQ}
+            {tFmt(T.grammarQuestionOf, qIndex + 1, totalQ)}
           </Text>
           <View style={styles.quizDots}>
             {lesson.quiz.map((_, i) => (
@@ -280,7 +288,7 @@ function QuizStep({ lesson, t, onComplete }: {
                   : <X size={14} color="#ef4444" strokeWidth={3} />
                 }
                 <Text style={[styles.explanationTitle, { color: isCorrect ? '#22c55e' : '#ef4444' }]}>
-                  {isCorrect ? 'Correct!' : 'Not quite'}
+                  {isCorrect ? T.correct : T.notQuite}
                 </Text>
               </View>
               <Text style={[styles.explanationText, { color: t.fg }]}>{q.explanation}</Text>
@@ -295,7 +303,7 @@ function QuizStep({ lesson, t, onComplete }: {
         <View style={[styles.stickyFooter, { borderTopColor: t.border, backgroundColor: t.bg }]}>
           <Pressable style={[styles.ctaBtn, { backgroundColor: t.fg }]} onPress={next}>
             <Text style={[styles.ctaBtnText, { color: t.bg }]}>
-              {qIndex + 1 >= totalQ ? 'Go to Practice' : 'Next Question'}
+              {qIndex + 1 >= totalQ ? T.grammarGoToPractice : T.grammarNextQuestion}
             </Text>
             <ChevronRight size={18} color={t.bg} strokeWidth={2.5} />
           </Pressable>
@@ -307,9 +315,10 @@ function QuizStep({ lesson, t, onComplete }: {
 
 /* ─── Step: AI Practice ──────────────────────────────────────── */
 
-function PracticeStep({ lesson, t, onComplete }: {
+function PracticeStep({ lesson, t, T, onComplete }: {
   lesson: GrammarLesson;
   t: ReturnType<typeof useTheme>;
+  T: ReturnType<typeof useT>;
   onComplete: () => void;
 }) {
   const [items,      setItems]      = useState<PracticeItem[]>([]);
@@ -355,7 +364,7 @@ Respond ONLY with a valid JSON array (no markdown fences, no extra text) in this
       const parsed: PracticeItem[] = JSON.parse(raw.replace(/```json|```/g, '').trim());
       setItems(parsed.slice(0, 3));
     } catch (e) {
-      setError('Could not load practice exercises. Please check your connection.');
+      setError(T.grammarLoadError);
     } finally {
       setLoading(false);
     }
@@ -376,7 +385,7 @@ Respond ONLY with a valid JSON array (no markdown fences, no extra text) in this
       <View style={styles.practiceCenter}>
         <ActivityIndicator size="small" color={t.accent} />
         <Text style={[styles.practiceLoadingText, { color: t.muted }]}>
-          Generating practice exercises…
+          {T.grammarGenerating}
         </Text>
       </View>
     );
@@ -386,12 +395,12 @@ Respond ONLY with a valid JSON array (no markdown fences, no extra text) in this
   if (error || items.length === 0) {
     return (
       <View style={styles.practiceCenter}>
-        <Text style={[styles.practiceErrorText, { color: t.muted }]}>{error ?? 'No exercises available.'}</Text>
+        <Text style={[styles.practiceErrorText, { color: t.muted }]}>{error ?? T.grammarNoExercises}</Text>
         <Pressable style={[styles.retryBtn, { borderColor: t.border }]} onPress={fetchPractice}>
-          <Text style={[styles.retryBtnText, { color: t.fg }]}>Retry</Text>
+          <Text style={[styles.retryBtnText, { color: t.fg }]}>{T.grammarRetry}</Text>
         </Pressable>
         <Pressable onPress={onComplete} style={{ marginTop: 12 }}>
-          <Text style={[styles.skipLink, { color: t.muted }]}>Skip and complete →</Text>
+          <Text style={[styles.skipLink, { color: t.muted }]}>{T.grammarSkipComplete}</Text>
         </Pressable>
       </View>
     );
@@ -409,7 +418,7 @@ Respond ONLY with a valid JSON array (no markdown fences, no extra text) in this
         {/* Exercise counter */}
         <View style={styles.quizMeta}>
           <Text style={[styles.quizCounter, { color: t.muted }]}>
-            Exercise {exIndex + 1} of {items.length}
+            {tFmt(T.grammarExerciseOf, exIndex + 1, items.length)}
           </Text>
           <View style={styles.quizDots}>
             {items.map((_, i) => (
@@ -428,7 +437,7 @@ Respond ONLY with a valid JSON array (no markdown fences, no extra text) in this
           {/* Sparkles badge */}
           <View style={styles.practiceBadge}>
             <Sparkles size={12} color={t.accent} strokeWidth={2} />
-            <Text style={[styles.practiceBadgeText, { color: t.accent }]}>AI Practice</Text>
+            <Text style={[styles.practiceBadgeText, { color: t.accent }]}>{T.grammarAiPractice}</Text>
           </View>
 
           {/* Exercise text */}
@@ -443,7 +452,7 @@ Respond ONLY with a valid JSON array (no markdown fences, no extra text) in this
               onPress={() => setRevealed(true)}
             >
               <Eye size={16} color={t.muted} strokeWidth={2} />
-              <Text style={[styles.revealBtnText, { color: t.muted }]}>Show Answer</Text>
+              <Text style={[styles.revealBtnText, { color: t.muted }]}>{T.grammarShowAnswer}</Text>
             </Pressable>
           ) : (
             <Animated.View entering={FadeInDown.duration(250)}>
@@ -451,7 +460,7 @@ Respond ONLY with a valid JSON array (no markdown fences, no extra text) in this
               <View style={[styles.answerBox, { backgroundColor: '#22c55e14', borderColor: '#22c55e40' }]}>
                 <View style={styles.answerHeader}>
                   <Check size={14} color="#22c55e" strokeWidth={3} />
-                  <Text style={styles.answerLabel}>Answer</Text>
+                  <Text style={styles.answerLabel}>{T.grammarAnswerLabel}</Text>
                 </View>
                 <Text style={styles.answerText}>{item.answer}</Text>
               </View>
@@ -474,7 +483,7 @@ Respond ONLY with a valid JSON array (no markdown fences, no extra text) in this
             onPress={next}
           >
             <Text style={[styles.ctaBtnText, { color: '#fff' }]}>
-              {exIndex + 1 >= items.length ? 'Complete Lesson ✓' : 'Next Exercise'}
+              {exIndex + 1 >= items.length ? T.grammarCompleteLesson : T.grammarNextExercise}
             </Text>
             {exIndex + 1 < items.length && (
               <ChevronRight size={18} color="#fff" strokeWidth={2.5} />
@@ -488,11 +497,12 @@ Respond ONLY with a valid JSON array (no markdown fences, no extra text) in this
 
 /* ─── Completion ─────────────────────────────────────────────── */
 
-function DoneScreen({ lesson, score, total, t, onBack }: {
+function DoneScreen({ lesson, score, total, t, T, onBack }: {
   lesson: GrammarLesson;
   score: number;
   total: number;
   t: ReturnType<typeof useTheme>;
+  T: ReturnType<typeof useT>;
   onBack: () => void;
 }) {
   const color = LEVEL_COLORS[lesson.level];
@@ -507,7 +517,7 @@ function DoneScreen({ lesson, score, total, t, onBack }: {
       </Animated.View>
 
       <Animated.Text entering={FadeInDown.delay(140).duration(400)} style={[styles.doneTitle, { color: t.fg }]}>
-        Lesson Complete!
+        {T.grammarLessonComplete}
       </Animated.Text>
 
       <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={[styles.doneSubtitle, { color: t.muted }]}>
@@ -515,14 +525,14 @@ function DoneScreen({ lesson, score, total, t, onBack }: {
       </Animated.Text>
 
       <Animated.View entering={FadeInDown.delay(260).duration(400)} style={[styles.scoreCard, { backgroundColor: t.surface, borderColor: t.border }]}>
-        <Text style={[styles.scoreLabel, { color: t.muted }]}>Quiz Score</Text>
+        <Text style={[styles.scoreLabel, { color: t.muted }]}>{T.grammarQuizScore}</Text>
         <Text style={[styles.scoreNum, { color: t.fg }]}>{score}/{total}</Text>
         <Text style={[styles.scorePct, { color: pct >= 67 ? '#22c55e' : t.accent }]}>{pct}%</Text>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(320).duration(400)} style={{ width: '100%' }}>
         <Pressable style={[styles.ctaBtn, { backgroundColor: color }]} onPress={onBack}>
-          <Text style={[styles.ctaBtnText, { color: '#fff' }]}>Back to Roadmap</Text>
+          <Text style={[styles.ctaBtnText, { color: '#fff' }]}>{T.grammarBackRoadmap}</Text>
         </Pressable>
       </Animated.View>
     </View>
@@ -534,6 +544,7 @@ function DoneScreen({ lesson, score, total, t, onBack }: {
 export default function GrammarLessonScreen() {
   const { id }  = useLocalSearchParams<{ id: string }>();
   const t       = useTheme();
+  const T       = useT();
   const router  = useRouter();
   const lesson  = ALL_LESSONS.find((l) => l.id === id);
 
@@ -545,10 +556,10 @@ export default function GrammarLessonScreen() {
   const color = LEVEL_COLORS[lesson.level];
 
   const stepLabels: Record<Step, string> = {
-    learn:    'Learn',
-    quiz:     'Quiz',
-    practice: 'Practice',
-    done:     'Done',
+    learn:    T.grammarStepLearn,
+    quiz:     T.grammarStepQuiz,
+    practice: T.grammarStepPractice,
+    done:     T.grammarStepPractice,
   };
 
   async function handleQuizComplete(score: number) {
@@ -577,6 +588,7 @@ export default function GrammarLessonScreen() {
           score={quizScore}
           total={lesson.quiz.length}
           t={t}
+          T={T}
           onBack={() => router.back()}
         />
       </SafeAreaView>
@@ -608,13 +620,13 @@ export default function GrammarLessonScreen() {
 
       {/* Step content */}
       {step === 'learn' && (
-        <LearnStep lesson={lesson} t={t} onNext={() => setStep('quiz')} />
+        <LearnStep lesson={lesson} t={t} T={T} onNext={() => setStep('quiz')} />
       )}
       {step === 'quiz' && (
-        <QuizStep lesson={lesson} t={t} onComplete={handleQuizComplete} />
+        <QuizStep lesson={lesson} t={t} T={T} onComplete={handleQuizComplete} />
       )}
       {step === 'practice' && (
-        <PracticeStep lesson={lesson} t={t} onComplete={handlePracticeComplete} />
+        <PracticeStep lesson={lesson} t={t} T={T} onComplete={handlePracticeComplete} />
       )}
     </SafeAreaView>
   );

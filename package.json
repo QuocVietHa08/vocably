@@ -17,6 +17,7 @@
     "typescript": "~5.9.2"
   },
   "dependencies": {
-    "expo-speech": "^55.0.8"
+    "expo-speech": "^55.0.8",
+    "react-native-keyboard-controller": "^1.20.7"
   }
 }

@@ -12,13 +12,14 @@ import { ResultsScreen } from '@/src/components/flashcard/ResultsScreen';
 import { useFavorites } from '@/src/hooks/useFavorites';
 import { useLearnedWords } from '@/src/hooks/useLearnedWords';
 import { useSettings } from '@/src/context/SettingsContext';
-import { Mic, Settings2, BookOpen, RefreshCw, Keyboard } from 'lucide-react-native';
+import { useT } from '@/src/i18n/useT';
+import { Mic, Settings2, BookOpen, RefreshCw, Dumbbell, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-type FilterMode = 'all' | 'favorites' | 'learned';
+type FilterMode = 'all' | 'favorites';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -31,10 +32,11 @@ function shuffle<T>(arr: T[]): T[] {
 
 export default function HomeScreen() {
   const t        = useTheme();
+  const T        = useT();
   const router   = useRouter();
   const { nativeLanguage } = useSettings();
   const { favoriteIds, isFavorite, toggleFavorite, loaded } = useFavorites();
-  const { learnedIds, isLearned, markLearned, loaded: learnedLoaded } = useLearnedWords();
+  const { markLearned } = useLearnedWords();
 
   const [filterMode,  setFilterMode]  = useState<FilterMode>('all');
   const [autoRepeat,  setAutoRepeat]  = useState(false);
@@ -48,23 +50,17 @@ export default function HomeScreen() {
 
   // Re-build deck when filter changes
   useEffect(() => {
-    if (!loaded || !learnedLoaded) return;
-    let source: Flashcard[];
-    if (filterMode === 'favorites') {
-      source = allCards.filter((c) => favoriteIds.has(c.id));
-    } else if (filterMode === 'learned') {
-      source = allCards.filter((c) => learnedIds.has(c.id));
-    } else {
-      source = allCards;
-    }
+    if (!loaded) return;
+    const source = filterMode === 'favorites'
+      ? allCards.filter((c) => favoriteIds.has(c.id))
+      : allCards;
     setCards(shuffle(source.length > 0 ? source : allCards));
     setIndex(0); setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
-  }, [filterMode, loaded, learnedLoaded]);
+  }, [filterMode, loaded]);
 
   const currentCard = cards[index];
   const total       = cards.length;
-  const favCount     = favoriteIds.size;
-  const learnedCount = learnedIds.size;
+  const favCount    = favoriteIds.size;
 
   const advance = useCallback((result: 'know' | 'dontknow') => {
     ttsStop();
@@ -97,14 +93,9 @@ export default function HomeScreen() {
 
   const restart = () => {
     ttsStop();
-    let source: Flashcard[];
-    if (filterMode === 'favorites') {
-      source = allCards.filter((c) => favoriteIds.has(c.id));
-    } else if (filterMode === 'learned') {
-      source = allCards.filter((c) => learnedIds.has(c.id));
-    } else {
-      source = allCards;
-    }
+    const source = filterMode === 'favorites'
+      ? allCards.filter((c) => favoriteIds.has(c.id))
+      : allCards;
     setCards(shuffle(source.length > 0 ? source : allCards));
     setIndex(0); setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
   };
@@ -146,21 +137,14 @@ export default function HomeScreen() {
               onPress={() => router.push('/practice')}
             >
               <Mic size={14} color={t.muted} strokeWidth={2.5} />
-              <Text style={[styles.navBtnText, { color: t.muted }]}>Speaking</Text>
+              <Text style={[styles.navBtnText, { color: t.muted }]}>{T.speakingBtn}</Text>
             </Pressable>
             <Pressable
               style={[styles.navBtn, { borderColor: t.border }]}
               onPress={() => router.push('/grammar')}
             >
               <BookOpen size={14} color={t.muted} strokeWidth={2.5} />
-              <Text style={[styles.navBtnText, { color: t.muted }]}>Grammar</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.navBtn, { borderColor: t.border }]}
-              onPress={() => router.push('/typing-lesson')}
-            >
-              <Keyboard size={14} color={t.muted} strokeWidth={2.5} />
-              <Text style={[styles.navBtnText, { color: t.muted }]}>Typing</Text>
+              <Text style={[styles.navBtnText, { color: t.muted }]}>{T.grammarBtn}</Text>
             </Pressable>
           </View>
 
@@ -184,9 +168,8 @@ export default function HomeScreen() {
         <View style={styles.toolbar}>
           {/* Filter pills */}
           <View style={[styles.filterBar, { backgroundColor: t.subtle, borderColor: t.border }]}>
-            <FilterBtn mode="all"       label="All" />
-            <FilterBtn mode="learned"   label="Learned" count={learnedCount > 0 ? learnedCount : undefined} />
-            <FilterBtn mode="favorites" label="★ Saved" count={favCount > 0 ? favCount : undefined} />
+            <FilterBtn mode="all"       label={T.filterAll} />
+            <FilterBtn mode="favorites" label={T.filterSaved} count={favCount > 0 ? favCount : undefined} />
           </View>
 
           {/* Auto-repeat toggle */}
@@ -199,25 +182,27 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        {/* ── Practice entry strip ── */}
+        <Pressable
+          style={[styles.practiceStrip, { backgroundColor: t.surface, borderColor: t.border }]}
+          onPress={() => router.push('/quiz')}
+        >
+          <View style={[styles.practiceIconWrap, { backgroundColor: `${t.accent}18` }]}>
+            <Dumbbell size={16} color={t.accent} strokeWidth={2.2} />
+          </View>
+          <View style={styles.practiceInfo}>
+            <Text style={[styles.practiceTitle, { color: t.fg }]}>{T.practiceTitle}</Text>
+            <Text style={[styles.practiceSub, { color: t.muted }]}>{T.practiceSub}</Text>
+          </View>
+          <ChevronRight size={16} color={t.muted} strokeWidth={2.5} />
+        </Pressable>
+
         {/* Empty favorites message */}
         {filterMode === 'favorites' && favCount === 0 && (
           <Animated.View entering={FadeIn} style={styles.emptyFav}>
             <Text style={[styles.emptyFavIcon]}>🤍</Text>
-            <Text style={[styles.emptyFavText, { color: t.muted }]}>No saved words yet</Text>
-            <Text style={[styles.emptyFavHint, { color: t.muted }]}>
-              Tap the ♡ on any card to save it
-            </Text>
-          </Animated.View>
-        )}
-
-        {/* Empty learned message */}
-        {filterMode === 'learned' && learnedCount === 0 && (
-          <Animated.View entering={FadeIn} style={styles.emptyFav}>
-            <Text style={[styles.emptyFavIcon]}>🎓</Text>
-            <Text style={[styles.emptyFavText, { color: t.muted }]}>No learned words yet</Text>
-            <Text style={[styles.emptyFavHint, { color: t.muted }]}>
-              Swipe right on cards you know to build your list
-            </Text>
+            <Text style={[styles.emptyFavText, { color: t.muted }]}>{T.emptyFavText}</Text>
+            <Text style={[styles.emptyFavHint, { color: t.muted }]}>{T.emptyFavHint}</Text>
           </Animated.View>
         )}
 
@@ -232,7 +217,7 @@ export default function HomeScreen() {
               onRestart={restart}
               onRetryMissed={retryMissed}
             />
-          ) : currentCard && !(filterMode === 'favorites' && favCount === 0) && !(filterMode === 'learned' && learnedCount === 0) ? (
+          ) : currentCard && !(filterMode === 'favorites' && favCount === 0) ? (
             <Animated.View
               key={index}
               entering={FadeInRight.duration(180)}
@@ -250,11 +235,9 @@ export default function HomeScreen() {
         </View>
 
         {/* Swipe hint + repeat badge */}
-        {!done && index === 0 && !(filterMode === 'favorites' && favCount === 0) && !(filterMode === 'learned' && learnedCount === 0) && (
+        {!done && index === 0 && !(filterMode === 'favorites' && favCount === 0) && (
           <View style={styles.swipeHint}>
-            <Text style={[styles.swipeHintText, { color: t.muted }]}>
-              ← again  ·  tap to flip  ·  know →
-            </Text>
+            <Text style={[styles.swipeHintText, { color: t.muted }]}>{T.swipeHint}</Text>
           </View>
         )}
 
@@ -262,7 +245,7 @@ export default function HomeScreen() {
         {autoRepeat && !done && (
           <View style={styles.repeatBadge}>
             <RefreshCw size={10} color={t.accent} strokeWidth={2.5} />
-            <Text style={[styles.repeatBadgeText, { color: t.accent }]}>repeat on</Text>
+            <Text style={[styles.repeatBadgeText, { color: t.accent }]}>{T.repeatOn}</Text>
           </View>
         )}
 
@@ -320,6 +303,25 @@ const styles = StyleSheet.create({
     width: 34, height: 34, borderRadius: 17, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
+
+  /* Practice entry strip */
+  practiceStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  practiceIconWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  practiceInfo: { flex: 1, gap: 2 },
+  practiceTitle: { fontSize: 14, fontFamily: F.bold },
+  practiceSub:   { fontSize: 11, fontFamily: F.medium },
 
   /* Empty favorites */
   emptyFav: {

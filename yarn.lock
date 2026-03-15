@@ -4799,9 +4799,11 @@ ieee754@^1.1.13:
     expo-font "^55.0.4"
     expo-haptics "~15.0.8"
     expo-linking "~8.0.11"
+    expo-media-library "^55.0.9"
     expo-notifications "^55.0.12"
     expo-router "~6.0.23"
     expo-secure-store "^55.0.8"
+    expo-sharing "^55.0.11"
     expo-speech "^55.0.8"
     expo-splash-screen "^55.0.10"
     expo-status-bar "~3.0.9"
@@ -4816,6 +4818,7 @@ ieee754@^1.1.13:
     react-native-screens "~4.16.0"
     react-native-svg "^15.15.3"
     react-native-url-polyfill "^3.0.0"
+    react-native-view-shot "^4.0.3"
     react-native-worklets "0.5.1"
 
 "ielts-flashcard@file:/sessions/hopeful-optimistic-thompson/mnt/vocally/apps/web":
@@ -6728,6 +6731,13 @@ react-native-is-edge-to-edge@^1.1.6, react-native-is-edge-to-edge@^1.2.1:
   resolved "https://registry.npmjs.org/react-native-is-edge-to-edge/-/react-native-is-edge-to-edge-1.3.1.tgz"
   integrity sha512-NIXU/iT5+ORyCc7p0z2nnlkouYKX425vuU1OEm6bMMtWWR9yvb+Xg5AZmImTKoF9abxCPqrKC3rOZsKzUYgYZA==
 
+react-native-keyboard-controller@^1.20.7:
+  version "1.20.7"
+  resolved "https://registry.npmjs.org/react-native-keyboard-controller/-/react-native-keyboard-controller-1.20.7.tgz"
+  integrity sha512-G8S5jz1FufPrcL1vPtReATx+jJhT/j+sTqxMIb30b1z7cYEfMlkIzOCyaHgf6IMB2KA9uBmnA5M6ve2A9Ou4kw==
+  dependencies:
+    react-native-is-edge-to-edge "^1.2.1"
+
 react-native-purchases@^9.12.0:
   version "9.12.0"
   resolved "https://registry.npmjs.org/react-native-purchases/-/react-native-purchases-9.12.0.tgz"
@@ -6736,7 +6746,7 @@ react-native-purchases@^9.12.0:
     "@revenuecat/purchases-js-hybrid-mappings" "17.46.1"
     "@revenuecat/purchases-typescript-internal" "17.46.1"
 
-react-native-reanimated@*, react-native-reanimated@4.1.0:
+react-native-reanimated@*, react-native-reanimated@>=3.0.0, react-native-reanimated@4.1.0:
   version "4.1.0"
   resolved "https://registry.npmjs.org/react-native-reanimated/-/react-native-reanimated-4.1.0.tgz"
   integrity sha512-L8FqZn8VjZyBaCUMYFyx1Y+T+ZTbblaudpxReOXJ66RnOf52g6UM4Pa/IjwLD1XAw1FUxLRQrtpdjbkEc74FiQ==
@@ -6870,7 +6880,7 @@ react-style-singleton@^2.2.2, react-style-singleton@^2.2.3:
     get-nonce "^1.0.0"
     tslib "^2.0.0"
 
-react@*, "react@^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc", "react@^16.8 || ^17.0 || ^18.0 || ^19.0.0 || ^19.0.0-rc", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc", react@^19.1.0, react@^19.2.3, "react@>= 16.6.3", "react@>= 18.2.0", react@>=16.8, react@>=17.0.0:
+react@*, "react@^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc", "react@^16.8 || ^17.0 || ^18.0 || ^19.0.0 || ^19.0.0-rc", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc", "react@^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0", react@^19.0.0, react@^19.1.0, react@^19.2.3, react@^19.2.4, "react@>= 16.6.3", "react@>= 16.8.0 || 17.x.x || ^18.0.0-0 || ^19.0.0-0", "react@>= 18.2.0", react@>=16.8, react@>=17.0.0:
   version "19.2.4"
   resolved "https://registry.npmjs.org/react/-/react-19.2.4.tgz"
   integrity sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==
@@ -6879,11 +6889,6 @@ react@*, "react@^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8 || ^17.0
   version "19.2.3"
   resolved "https://registry.npmjs.org/react/-/react-19.2.3.tgz"
   integrity sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==
-
-"react@^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0", react@^19.0.0, react@^19.2.4, "react@>= 16.8.0 || 17.x.x || ^18.0.0-0 || ^19.0.0-0":
-  version "19.2.4"
-  resolved "https://registry.npmjs.org/react/-/react-19.2.4.tgz"
-  integrity sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==
 
 react@19.1.0:
   version "19.1.0"

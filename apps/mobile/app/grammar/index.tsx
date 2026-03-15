@@ -15,10 +15,16 @@ import { useCallback } from 'react';
 import { ChevronLeft, Lock, Check, Play, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
+import { useT } from '@/src/i18n/useT';
 import {
   ALL_LESSONS, LESSONS_BY_LEVEL, LEVEL_COLORS, LEVEL_DESCRIPTIONS,
   type GrammarLevel, type GrammarLesson,
 } from '@/src/data/grammar';
+
+/** Replace {0}, {1}, … placeholders in a translated template string */
+function tFmt(template: string, ...args: (string | number)[]): string {
+  return args.reduce<string>((s, arg, i) => s.replace(`{${i}}`, String(arg)), template);
+}
 
 /* ─── Layout constants ────────────────────────────────────────── */
 
@@ -260,6 +266,7 @@ function TopicLabel({ node, t }: { node: LessonNode; t: ReturnType<typeof useThe
 
 export default function GrammarRoadmapScreen() {
   const t      = useTheme();
+  const T      = useT();
   const router = useRouter();
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [ready,        setReady]        = useState(false);
@@ -302,9 +309,9 @@ export default function GrammarRoadmapScreen() {
           <ChevronLeft size={22} color={t.fg} strokeWidth={2.5} />
         </Pressable>
         <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: t.fg }]}>Grammar Path</Text>
+          <Text style={[styles.headerTitle, { color: t.fg }]}>{T.grammarTitle}</Text>
           <Text style={[styles.headerSub, { color: t.muted }]}>
-            {completedCount} of {totalCount} complete
+            {tFmt(T.grammarProgressOf, completedCount, totalCount)}
           </Text>
         </View>
         <View style={styles.backBtn} />
