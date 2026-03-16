@@ -13,11 +13,13 @@ interface SettingsValue {
   notificationsEnabled:    boolean;
   nativeLanguage:          string;          // e.g. 'vi', 'zh', 'ja' …  '' = not yet set
   ttsVoice:                OpenAIVoice;     // OpenAI TTS voice
+  dailyGoal:               number;          // words per day, e.g. 5 | 10 | 15 | 20 | 30 | 50
   setThemeOverride:        (v: ThemeOverride) => void;
   setTargetBand:           (v: number) => void;
   setNotificationsEnabled: (v: boolean) => void;
   setNativeLanguage:       (v: string) => void;
   setTtsVoice:             (v: OpenAIVoice) => void;
+  setDailyGoal:            (v: number) => void;
 }
 
 const DEFAULTS = {
@@ -26,6 +28,7 @@ const DEFAULTS = {
   notificationsEnabled: true,
   nativeLanguage:       '',
   ttsVoice:             'nova' as OpenAIVoice,
+  dailyGoal:            10,
 };
 
 const SettingsContext = createContext<SettingsValue>({
@@ -35,6 +38,7 @@ const SettingsContext = createContext<SettingsValue>({
   setNotificationsEnabled: () => {},
   setNativeLanguage:       () => {},
   setTtsVoice:             () => {},
+  setDailyGoal:            () => {},
 });
 
 const STORAGE_KEY = '@vocally/settings';
@@ -47,6 +51,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [notificationsEnabled, setNotificationsEnabledState] = useState(DEFAULTS.notificationsEnabled);
   const [nativeLanguage,       setNativeLanguageState]       = useState(DEFAULTS.nativeLanguage);
   const [ttsVoice,             setTtsVoiceState]             = useState<OpenAIVoice>(DEFAULTS.ttsVoice);
+  const [dailyGoal,            setDailyGoalState]            = useState(DEFAULTS.dailyGoal);
 
   // Load from storage once on mount
   useEffect(() => {
@@ -59,12 +64,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (saved.notificationsEnabled != null) setNotificationsEnabledState(saved.notificationsEnabled);
         if (saved.nativeLanguage)               setNativeLanguageState(saved.nativeLanguage);
         if (saved.ttsVoice)                     setTtsVoiceState(saved.ttsVoice);
+        if (saved.dailyGoal != null)            setDailyGoalState(saved.dailyGoal);
       } catch {}
     });
   }, []);
 
   function persist(patch: Partial<typeof DEFAULTS>) {
-    const current = { themeOverride, targetBand, notificationsEnabled, nativeLanguage, ttsVoice };
+    const current = { themeOverride, targetBand, notificationsEnabled, nativeLanguage, ttsVoice, dailyGoal };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...patch }));
   }
 
@@ -88,12 +94,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setTtsVoiceState(v);
     persist({ ttsVoice: v });
   }
+  function setDailyGoal(v: number) {
+    setDailyGoalState(v);
+    persist({ dailyGoal: v });
+  }
 
   return (
     <ThemeBridgeContext.Provider value={themeOverride}>
       <SettingsContext.Provider value={{
-        themeOverride, targetBand, notificationsEnabled, nativeLanguage, ttsVoice,
-        setThemeOverride, setTargetBand, setNotificationsEnabled, setNativeLanguage, setTtsVoice,
+        themeOverride, targetBand, notificationsEnabled, nativeLanguage, ttsVoice, dailyGoal,
+        setThemeOverride, setTargetBand, setNotificationsEnabled, setNativeLanguage, setTtsVoice, setDailyGoal,
       }}>
         {children}
       </SettingsContext.Provider>

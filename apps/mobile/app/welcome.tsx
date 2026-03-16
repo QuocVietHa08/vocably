@@ -7,13 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withTiming, withSpring, withRepeat, withSequence, withDelay,
-  FadeInDown, FadeOutUp, FadeIn,
+  FadeInDown, FadeOutUp, FadeIn, SlideInRight,
   Easing, runOnJS, interpolate,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Mic, Sparkles, BookOpen, Globe, Volume2, Bell, CheckCircle } from 'lucide-react-native';
+import { Mic, Sparkles, BookOpen, Globe, Volume2, Bell, CheckCircle, Target, MessageCircle, ArrowRight, Minus, Plus } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 import { useSettings } from '@/src/context/SettingsContext';
@@ -51,16 +52,29 @@ enum Step {
   Language      = 1,
   CurrentLevel  = 2,
   TargetLevel   = 3,
-  Features      = 4,
-  Flashcards    = 5,
-  Celebration   = 6,
-  PersonalPlan  = 7,
-  Notifications = 8,
-  SignIn        = 9,
-  Paywall       = 10,
+  DailyGoal     = 4,
+  Features      = 5,
+  Flashcards    = 6,
+  Celebration   = 7,
+  PersonalPlan  = 8,
+  HearAbout     = 9,
+  Notifications = 10,
+  SignIn        = 11,
+  Paywall       = 12,
 }
 
-const TOTAL_STEPS = 11;
+const TOTAL_STEPS = 13;
+
+const DAILY_GOAL_OPTIONS = [5, 10, 15, 20, 30, 50];
+
+const HEAR_ABOUT_OPTIONS = [
+  { key: 'appstore', label: 'App Store / Play Store', icon: '📱' },
+  { key: 'friend',   label: 'Friend or Family',       icon: '👥' },
+  { key: 'social',   label: 'Social Media',           icon: '📲' },
+  { key: 'search',   label: 'Search Engine',          icon: '🔍' },
+  { key: 'ad',       label: 'Online Ad',              icon: '📢' },
+  { key: 'other',    label: 'Other',                  icon: '✨' },
+];
 
 const CEFR_LEVELS = [
   { key: 'A1', label: 'A1', description: "I'm just starting out",      band: 4,   color: '#22c55e' },
@@ -151,62 +165,74 @@ function BackgroundBlob({ color }: { color: string }) {
   return <Animated.View style={[styles.blob, { backgroundColor: `${color}12` }, style]} />;
 }
 
-/* ─── Step 0: Welcome Splash (enhanced) ──────────────────────── */
+/* ─── Step 0: Welcome Splash ──────────────────────────────────── */
 
 function WelcomeSplash() {
-  const t = useTheme();
   const T = useT();
-  const titleScale   = useSharedValue(0.8);
-  const titleOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    titleScale.value   = withSpring(1, { damping: 12, stiffness: 100 });
-    titleOpacity.value = withTiming(1, { duration: 600 });
-  }, []);
-
-  const titleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: titleScale.value }],
-    opacity: titleOpacity.value,
-  }));
 
   const features = [
-    { text: T.onboardingWelcomeFeature1, icon: '🎙' },
-    { text: T.onboardingWelcomeFeature2, icon: '📚' },
-    { text: T.onboardingWelcomeFeature3, icon: '✦' },
+    T.onboardingWelcomeFeature1,
+    T.onboardingWelcomeFeature2,
+    T.onboardingWelcomeFeature3,
   ];
 
   return (
-    <>
+    <View style={styles.welcomeLayout}>
+      {/* Brand tag */}
       <Animated.View
-        entering={FadeInDown.delay(80).duration(400).springify()}
-        style={styles.iconContainer}
+        entering={FadeInDown.delay(60).duration(400).springify()}
+        style={styles.welcomeBrandRow}
       >
-        <FloatingIcon Icon={Mic} color="#f4511e" />
-      </Animated.View>
-      <Animated.View style={titleStyle}>
-        <Text style={[styles.appName, { color: t.fg }]}>Vocally</Text>
-        <Text style={[styles.tagline, { color: t.muted }]}>
-          {T.onboardingWelcomeSub}
-        </Text>
+        <View style={styles.welcomeBrandDot} />
+        <Text style={styles.welcomeBrandLabel}>VOCALLY</Text>
       </Animated.View>
 
-      {/* Value proposition bullets */}
+      {/* Big editorial headline */}
+      <Animated.Text
+        entering={FadeInDown.delay(160).duration(500).springify()}
+        style={styles.welcomeH1}
+      >
+        {'Build real\nEnglish\nfluency.'}
+      </Animated.Text>
+
+      {/* Tagline */}
+      <Animated.Text
+        entering={FadeInDown.delay(320).duration(400).springify()}
+        style={styles.welcomeTagline}
+      >
+        {T.onboardingWelcomeSub}
+      </Animated.Text>
+
+      {/* Feature list */}
       <Animated.View
-        entering={FadeInDown.delay(400).duration(400).springify()}
-        style={styles.welcomeFeatures}
+        entering={FadeInDown.delay(440).duration(400).springify()}
+        style={styles.welcomeChecklist}
       >
         {features.map((f, i) => (
           <Animated.View
             key={i}
-            entering={FadeInDown.delay(500 + i * 120).duration(300).springify()}
-            style={styles.welcomeFeatureRow}
+            entering={FadeInDown.delay(480 + i * 80).duration(300)}
+            style={styles.welcomeCheckRow}
           >
-            <Text style={styles.welcomeFeatureIcon}>{f.icon}</Text>
-            <Text style={[styles.welcomeFeatureText, { color: t.fg }]}>{f.text}</Text>
+            <View style={styles.welcomeCheckDot} />
+            <Text style={styles.welcomeCheckText}>{f}</Text>
           </Animated.View>
         ))}
       </Animated.View>
-    </>
+    </View>
+  );
+}
+
+/* ─── Step label (small caps above heading) ────────────────────── */
+
+function StepLabel({ children, color }: { children: string; color: string }) {
+  return (
+    <Animated.Text
+      entering={FadeInDown.delay(40).duration(350)}
+      style={[styles.stepLabel, { color }]}
+    >
+      {children}
+    </Animated.Text>
   );
 }
 
@@ -225,31 +251,23 @@ function LanguageSlide({
 
   return (
     <>
-      <Animated.View
-        entering={FadeInDown.delay(80).duration(400).springify()}
-        exiting={FadeOutUp.duration(200)}
-        style={styles.iconContainer}
-      >
-        <View style={[styles.iconCircle, { backgroundColor: `${accent}18` }]}>
-          <Globe size={52} color={accent} strokeWidth={1.5} />
-        </View>
-      </Animated.View>
+      <StepLabel color={accent}>LANGUAGE</StepLabel>
 
       <Animated.Text
-        entering={FadeInDown.delay(180).duration(400).springify()}
-        style={[styles.title, { color: t.fg }]}
+        entering={FadeInDown.delay(120).duration(400).springify()}
+        style={[styles.slideH2, { color: t.fg }]}
       >
         {T.onboardingYourLanguage}
       </Animated.Text>
       <Animated.Text
-        entering={FadeInDown.delay(240).duration(400).springify()}
-        style={[styles.subtitle, { color: t.muted }]}
+        entering={FadeInDown.delay(200).duration(400).springify()}
+        style={[styles.slideSub, { color: t.muted }]}
       >
         {T.onboardingPersonalise}
       </Animated.Text>
 
       <Animated.View
-        entering={FadeInDown.delay(320).duration(400).springify()}
+        entering={FadeInDown.delay(280).duration(400).springify()}
         style={styles.langGrid}
       >
         {NATIVE_LANGUAGES.map((lang) => {
@@ -287,15 +305,17 @@ function CurrentLevelSlide({
 
   return (
     <>
+      <StepLabel color="#0ea5e9">CURRENT LEVEL</StepLabel>
+
       <Animated.Text
-        entering={FadeInDown.delay(80).duration(400).springify()}
-        style={[styles.title, { color: t.fg }]}
+        entering={FadeInDown.delay(120).duration(400).springify()}
+        style={[styles.slideH2, { color: t.fg }]}
       >
         {T.onboardingCurrentLevel}
       </Animated.Text>
       <Animated.Text
-        entering={FadeInDown.delay(180).duration(400).springify()}
-        style={[styles.subtitle, { color: t.muted }]}
+        entering={FadeInDown.delay(200).duration(400).springify()}
+        style={[styles.slideSub, { color: t.muted }]}
       >
         {T.onboardingCurrentLevelSub}
       </Animated.Text>
@@ -353,15 +373,17 @@ function TargetLevelSlide({
 
   return (
     <>
+      <StepLabel color="#8b5cf6">TARGET LEVEL</StepLabel>
+
       <Animated.Text
-        entering={FadeInDown.delay(80).duration(400).springify()}
-        style={[styles.title, { color: t.fg }]}
+        entering={FadeInDown.delay(120).duration(400).springify()}
+        style={[styles.slideH2, { color: t.fg }]}
       >
         {T.onboardingTargetLevel}
       </Animated.Text>
       <Animated.Text
-        entering={FadeInDown.delay(180).duration(400).springify()}
-        style={[styles.subtitle, { color: t.muted }]}
+        entering={FadeInDown.delay(200).duration(400).springify()}
+        style={[styles.slideSub, { color: t.muted }]}
       >
         {T.onboardingTargetLevelSub}
       </Animated.Text>
@@ -400,48 +422,158 @@ function TargetLevelSlide({
   );
 }
 
-/* ─── Step 4: Feature highlights ───────────────────────────────── */
+/* ─── Step 4: Daily Goal ───────────────────────────────────────── */
+
+function DailyGoalSlide({
+  selected,
+  onSelect,
+}: {
+  selected: number;
+  onSelect: (n: number) => void;
+}) {
+  const t = useTheme();
+  const accent = '#22c55e';
+  const count = selected > 0 ? selected : 10;
+
+  // Auto-init to 10 so the button is always enabled
+  useEffect(() => { if (selected === 0) onSelect(10); }, []);
+
+  const numScale = useSharedValue(1);
+  const numStyle = useAnimatedStyle(() => ({ transform: [{ scale: numScale.value }] }));
+
+  function change(next: number) {
+    const clamped = Math.min(50, Math.max(5, next));
+    if (clamped === count) return;
+    numScale.value = withSequence(
+      withTiming(0.82, { duration: 70 }),
+      withSpring(1, { damping: 8, stiffness: 340 }),
+    );
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onSelect(clamped);
+  }
+
+  const caption = count <= 5  ? "Easy does it — habit first 🌿"
+    : count <= 10 ? "🌱 A gentle daily rhythm"
+    : count <= 20 ? "🔥 Building real momentum"
+    :               "🚀 Full intensity — let's go";
+
+  const canDec = count > 5;
+  const canInc = count < 50;
+
+  return (
+    <View style={styles.goalLayout}>
+      <Animated.Text
+        entering={FadeInDown.delay(60).duration(400).springify()}
+        style={[styles.goalHeading, { color: t.fg }]}
+      >
+        {'Words per day'}
+      </Animated.Text>
+      <Animated.Text
+        entering={FadeInDown.delay(140).duration(400).springify()}
+        style={[styles.goalSubheading, { color: t.muted }]}
+      >
+        Pick a goal you'll actually stick to
+      </Animated.Text>
+
+      <Animated.View
+        entering={FadeInDown.delay(220).duration(400).springify()}
+        style={styles.counterRow}
+      >
+        <Pressable
+          onPress={() => change(count - 5)}
+          disabled={!canDec}
+          hitSlop={16}
+          style={[styles.counterBtn, {
+            borderColor:     canDec ? accent : `${t.muted}30`,
+            backgroundColor: canDec ? `${accent}12` : 'transparent',
+          }]}
+        >
+          <Minus size={22} color={canDec ? accent : `${t.muted}50`} strokeWidth={2.5} />
+        </Pressable>
+
+        <Animated.View style={[styles.counterDisplay, numStyle]}>
+          <Text style={[styles.counterNumber, { color: accent }]}>{count}</Text>
+          <Text style={[styles.counterUnit, { color: t.muted }]}>words / day</Text>
+        </Animated.View>
+
+        <Pressable
+          onPress={() => change(count + 5)}
+          disabled={!canInc}
+          hitSlop={16}
+          style={[styles.counterBtn, {
+            borderColor:     canInc ? accent : `${t.muted}30`,
+            backgroundColor: canInc ? `${accent}12` : 'transparent',
+          }]}
+        >
+          <Plus size={22} color={canInc ? accent : `${t.muted}50`} strokeWidth={2.5} />
+        </Pressable>
+      </Animated.View>
+
+      {/* Scale bar */}
+      <Animated.View
+        entering={FadeInDown.delay(300).duration(400)}
+        style={[styles.goalScaleTrack, { backgroundColor: `${t.muted}18` }]}
+      >
+        <View style={[styles.goalScaleFill, { backgroundColor: accent, width: `${((count - 5) / 45) * 100}%` }]} />
+      </Animated.View>
+      <View style={styles.goalScaleLabels}>
+        <Text style={[styles.goalScaleLabel, { color: t.muted }]}>5</Text>
+        <Text style={[styles.goalScaleLabel, { color: t.muted }]}>50</Text>
+      </View>
+
+      <Animated.Text
+        entering={FadeInDown.delay(380).duration(400)}
+        key={caption}
+        style={[styles.counterCaption, { color: t.muted }]}
+      >
+        {caption}
+      </Animated.Text>
+    </View>
+  );
+}
+
+/* ─── Step 5: Feature highlights ───────────────────────────────── */
 
 function FeatureHighlightsSlide() {
   const t = useTheme();
   const T = useT();
+  const accent = '#8b5cf6';
 
   const features = [
-    { Icon: Mic,      color: '#f4511e', title: T.onboardingSpeaking,  sub: T.onboardingSpeakingSub },
-    { Icon: BookOpen,  color: '#0ea5e9', title: T.onboardingVocab,    sub: T.onboardingVocabSub },
-    { Icon: Sparkles,  color: '#8b5cf6', title: T.onboardingFeedback, sub: T.onboardingFeedbackSub },
+    { num: '01', Icon: Mic,      color: '#f4511e', title: T.onboardingSpeaking,  sub: T.onboardingSpeakingSub },
+    { num: '02', Icon: BookOpen, color: '#0ea5e9', title: T.onboardingVocab,     sub: T.onboardingVocabSub },
+    { num: '03', Icon: Sparkles, color: '#8b5cf6', title: T.onboardingFeedback,  sub: T.onboardingFeedbackSub },
   ];
 
   return (
-    <>
+    <View style={styles.featLayout}>
+      <StepLabel color={accent}>WHAT YOU GET</StepLabel>
       <Animated.Text
-        entering={FadeInDown.delay(80).duration(400).springify()}
-        style={[styles.title, { color: t.fg }]}
+        entering={FadeInDown.delay(120).duration(400).springify()}
+        style={[styles.slideH2, { color: t.fg }]}
       >
         {T.onboardingFeatures}
       </Animated.Text>
 
-      <Animated.View
-        entering={FadeInDown.delay(200).duration(400).springify()}
-        style={styles.featureList}
-      >
+      <View style={styles.featList}>
         {features.map((feat, i) => (
           <Animated.View
             key={i}
-            entering={FadeInDown.delay(280 + i * 100).duration(400).springify()}
-            style={[styles.featureRow, { borderColor: t.border }]}
+            entering={FadeInDown.delay(220 + i * 110).duration(400).springify()}
+            style={[styles.featCard, { borderColor: t.border, backgroundColor: t.surface }]}
           >
-            <View style={[styles.featureIcon, { backgroundColor: `${feat.color}18` }]}>
-              <feat.Icon size={22} color={feat.color} strokeWidth={1.8} />
+            <View style={styles.featNumRow}>
+              <Text style={[styles.featNum, { color: `${feat.color}35` }]}>{feat.num}</Text>
+              <View style={[styles.featIconBadge, { backgroundColor: `${feat.color}18` }]}>
+                <feat.Icon size={20} color={feat.color} strokeWidth={1.8} />
+              </View>
             </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={[styles.featureTitle, { color: t.fg }]}>{feat.title}</Text>
-              <Text style={[styles.featureSub, { color: t.muted }]}>{feat.sub}</Text>
-            </View>
+            <Text style={[styles.featTitle, { color: t.fg }]}>{feat.title}</Text>
+            <Text style={[styles.featSub, { color: t.muted }]}>{feat.sub}</Text>
           </Animated.View>
         ))}
-      </Animated.View>
-    </>
+      </View>
+    </View>
   );
 }
 
@@ -1102,18 +1234,75 @@ function PaywallSlide({ onNext }: { onNext: () => void }) {
   );
 }
 
+/* ─── Step 9: Hear About ───────────────────────────────────────── */
+
+function HearAboutSlide({
+  selected,
+  onSelect,
+}: {
+  selected: string;
+  onSelect: (key: string) => void;
+}) {
+  const t = useTheme();
+  const accent = '#8b5cf6';
+
+  return (
+    <>
+      <StepLabel color={accent}>QUICK QUESTION</StepLabel>
+
+      <Animated.Text
+        entering={FadeInDown.delay(120).duration(400).springify()}
+        style={[styles.slideH2, { color: t.fg }]}
+      >
+        {'How did you hear\nabout Vocally?'}
+      </Animated.Text>
+      <Animated.Text
+        entering={FadeInDown.delay(200).duration(400).springify()}
+        style={[styles.slideSub, { color: t.muted }]}
+      >
+        Help us understand how people find us
+      </Animated.Text>
+
+      <Animated.View
+        entering={FadeInDown.delay(280).duration(400).springify()}
+        style={styles.hearAboutGrid}
+      >
+        {HEAR_ABOUT_OPTIONS.map((opt) => {
+          const active = selected === opt.key;
+          return (
+            <Pressable
+              key={opt.key}
+              onPress={() => onSelect(opt.key)}
+              style={[
+                styles.hearAboutCard,
+                { borderColor: active ? accent : t.border, backgroundColor: active ? `${accent}15` : t.surface },
+              ]}
+            >
+              <Text style={styles.hearAboutIcon}>{opt.icon}</Text>
+              <Text style={[styles.hearAboutLabel, { color: active ? accent : t.fg }]}>{opt.label}</Text>
+              {active && <CheckCircle size={16} color={accent} strokeWidth={2} />}
+            </Pressable>
+          );
+        })}
+      </Animated.View>
+    </>
+  );
+}
+
 /* ─── Screen ──────────────────────────────────────────────────── */
 
 export default function WelcomeScreen() {
   const t      = useTheme();
   const T      = useT();
   const router = useRouter();
-  const { nativeLanguage, setNativeLanguage, setTargetBand } = useSettings();
+  const { nativeLanguage, setNativeLanguage, setTargetBand, setDailyGoal } = useSettings();
 
   const [step,            setStep]            = useState<Step>(Step.Welcome);
   const [langSel,         setLangSel]         = useState(nativeLanguage || '');
   const [currentLevelSel, setCurrentLevelSel] = useState('');
   const [targetLevelSel,  setTargetLevelSel]  = useState('');
+  const [dailyGoalSel,    setDailyGoalSel]    = useState(10);
+  const [hearAboutSel,    setHearAboutSel]    = useState('');
   const [onboardingCards, setOnboardingCards]  = useState<Flashcard[]>([]);
   const [cardIndex,       setCardIndex]       = useState(0);
 
@@ -1144,6 +1333,7 @@ export default function WelcomeScreen() {
       const level = CEFR_LEVELS.find((l) => l.key === targetLevelSel);
       if (level) setTargetBand(level.band);
     }
+    if (dailyGoalSel > 0) setDailyGoal(dailyGoalSel);
     await AsyncStorage.setItem(WELCOME_SEEN_KEY, 'true');
     router.replace('/');
   }
@@ -1171,6 +1361,7 @@ export default function WelcomeScreen() {
       case Step.Language:     return langSel !== '';
       case Step.CurrentLevel: return currentLevelSel !== '';
       case Step.TargetLevel:  return targetLevelSel !== '';
+      case Step.DailyGoal:    return true; // always valid — auto-inits to 10
       case Step.Flashcards:   return false;
       case Step.PersonalPlan: return false;
       default:                return true;
@@ -1196,10 +1387,12 @@ export default function WelcomeScreen() {
       case Step.Language:      return '#f4511e';
       case Step.CurrentLevel:  return '#0ea5e9';
       case Step.TargetLevel:   return '#8b5cf6';
+      case Step.DailyGoal:     return '#22c55e';
       case Step.Features:      return '#8b5cf6';
       case Step.Flashcards:    return '#0ea5e9';
       case Step.Celebration:   return '#22c55e';
       case Step.PersonalPlan:  return '#f4511e';
+      case Step.HearAbout:     return '#8b5cf6';
       case Step.Notifications: return '#f59e0b';
       case Step.SignIn:        return '#3b82f6';
       case Step.Paywall:       return '#f4511e';
@@ -1210,9 +1403,11 @@ export default function WelcomeScreen() {
     && step !== Step.PersonalPlan && step !== Step.Notifications
     && step !== Step.SignIn;
 
+  const isWelcome = step === Step.Welcome;
+
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]}>
-      <BackgroundBlob key={step} color={stepAccent} />
+    <SafeAreaView style={[styles.safe, { backgroundColor: isWelcome ? '#f4511e' : t.bg }]}>
+      {!isWelcome && <BackgroundBlob key={`blob-${step}`} color={stepAccent} />}
 
       {showSkip && (
         <Animated.View entering={FadeIn} style={styles.skipRow}>
@@ -1222,65 +1417,87 @@ export default function WelcomeScreen() {
         </Animated.View>
       )}
 
-      {step === Step.Welcome && (
-        <View style={styles.content}><WelcomeSplash /></View>
-      )}
+      <Animated.View
+        key={step}
+        entering={isWelcome
+          ? FadeIn.duration(600)
+          : SlideInRight.duration(320).easing(Easing.out(Easing.poly(4)))}
+        style={{ flex: 1 }}
+      >
+        {step === Step.Welcome && (
+          <View style={styles.welcomeContainer}><WelcomeSplash /></View>
+        )}
 
-      {step === Step.Language && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.langContent} showsVerticalScrollIndicator={false}>
-          <LanguageSlide key={step} selected={langSel} onSelect={handleLangSelect} />
-        </ScrollView>
-      )}
+        {step === Step.Language && (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.langContent} showsVerticalScrollIndicator={false}>
+            <LanguageSlide selected={langSel} onSelect={handleLangSelect} />
+          </ScrollView>
+        )}
 
-      {step === Step.CurrentLevel && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.langContent} showsVerticalScrollIndicator={false}>
-          <CurrentLevelSlide selected={currentLevelSel} onSelect={setCurrentLevelSel} />
-        </ScrollView>
-      )}
+        {step === Step.CurrentLevel && (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.langContent} showsVerticalScrollIndicator={false}>
+            <CurrentLevelSlide selected={currentLevelSel} onSelect={setCurrentLevelSel} />
+          </ScrollView>
+        )}
 
-      {step === Step.TargetLevel && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.langContent} showsVerticalScrollIndicator={false}>
-          <TargetLevelSlide currentLevel={currentLevelSel} selected={targetLevelSel} onSelect={setTargetLevelSel} />
-        </ScrollView>
-      )}
+        {step === Step.TargetLevel && (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.langContent} showsVerticalScrollIndicator={false}>
+            <TargetLevelSlide currentLevel={currentLevelSel} selected={targetLevelSel} onSelect={setTargetLevelSel} />
+          </ScrollView>
+        )}
 
-      {step === Step.Features && (
-        <View style={styles.content}><FeatureHighlightsSlide /></View>
-      )}
+        {step === Step.DailyGoal && (
+          <View style={styles.goalContainer}>
+            <DailyGoalSlide selected={dailyGoalSel} onSelect={setDailyGoalSel} />
+          </View>
+        )}
 
-      {step === Step.Flashcards && (
-        <View style={styles.content}>
-          <MiniFlashcardSlide cards={onboardingCards} cardIndex={cardIndex} onSwipe={handleFlashcardSwipe} />
-        </View>
-      )}
+        {step === Step.Features && (
+          <View style={{ flex: 1 }}><FeatureHighlightsSlide /></View>
+        )}
 
-      {step === Step.Celebration && (
-        <View style={styles.content}><CelebrationSlide learnedWords={onboardingCards} /></View>
-      )}
+        {step === Step.Flashcards && (
+          <View style={styles.content}>
+            <MiniFlashcardSlide cards={onboardingCards} cardIndex={cardIndex} onSwipe={handleFlashcardSwipe} />
+          </View>
+        )}
 
-      {step === Step.PersonalPlan && (
-        <View style={styles.content}><PersonalPlanSlide onComplete={next} /></View>
-      )}
+        {step === Step.Celebration && (
+          <View style={styles.content}><CelebrationSlide learnedWords={onboardingCards} /></View>
+        )}
 
-      {step === Step.Notifications && (
-        <View style={styles.content}><NotificationSlide onEnable={next} onSkip={next} /></View>
-      )}
+        {step === Step.PersonalPlan && (
+          <View style={styles.content}><PersonalPlanSlide onComplete={next} /></View>
+        )}
 
-      {step === Step.SignIn && (
-        <View style={styles.content}><SignInSlide onNext={next} /></View>
-      )}
+        {step === Step.HearAbout && (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.langContent} showsVerticalScrollIndicator={false}>
+            <HearAboutSlide selected={hearAboutSel} onSelect={setHearAboutSel} />
+          </ScrollView>
+        )}
 
-      {step === Step.Paywall && (
-        <PaywallSlide onNext={() => void finish()} />
-      )}
+        {step === Step.Notifications && (
+          <View style={styles.content}><NotificationSlide onEnable={next} onSkip={next} /></View>
+        )}
+
+        {step === Step.SignIn && (
+          <View style={styles.content}><SignInSlide onNext={next} /></View>
+        )}
+
+        {step === Step.Paywall && (
+          <PaywallSlide onNext={() => void finish()} />
+        )}
+      </Animated.View>
 
       {showBottom && (
-        <View style={styles.bottom}>
-          <View style={styles.dots}>
-            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-              <Dot key={i} active={i === step} color={stepAccent} />
-            ))}
-          </View>
+        <View style={[styles.bottom, isWelcome && styles.bottomWelcome]}>
+          {!isWelcome && (
+            <View style={styles.dots}>
+              {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+                <Dot key={i} active={i === step} color={stepAccent} />
+              ))}
+            </View>
+          )}
 
           <Animated.View style={[styles.btnWrap, btnStyle]}>
             <Pressable
@@ -1288,15 +1505,19 @@ export default function WelcomeScreen() {
               onPressIn={onBtnPressIn}
               onPressOut={onBtnPressOut}
               disabled={!canAdvance}
-              style={[styles.btn, { backgroundColor: canAdvance ? stepAccent : `${stepAccent}55` }]}
+              style={[
+                styles.btn,
+                isWelcome
+                  ? styles.btnWelcome
+                  : { backgroundColor: canAdvance ? stepAccent : `${stepAccent}55` },
+              ]}
             >
-              <Text style={styles.btnText}>{btnLabel}</Text>
+              <Text style={[styles.btnText, isWelcome && styles.btnTextWelcome]}>
+                {btnLabel}
+              </Text>
+              {isWelcome && <ArrowRight size={18} color="#f4511e" strokeWidth={2.5} style={{ marginLeft: 6 }} />}
             </Pressable>
           </Animated.View>
-
-          <Text style={[styles.stepText, { color: t.muted }]}>
-            {step + 1} of {TOTAL_STEPS}
-          </Text>
         </View>
       )}
     </SafeAreaView>
@@ -1503,14 +1724,81 @@ const styles = StyleSheet.create({
   footerLink: { fontSize: 12, fontFamily: F.regular },
   footerDot:  { fontSize: 12 },
 
-  bottom:   { paddingHorizontal: 28, paddingBottom: 20, alignItems: 'center', gap: 16 },
-  dots:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot:      { height: 7, borderRadius: 4 },
-  btnWrap:  { width: '100%' },
+  bottom:        { paddingHorizontal: 28, paddingBottom: 20, alignItems: 'center', gap: 16 },
+  bottomWelcome: { paddingTop: 0, gap: 0 },
+  dots:          { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot:           { height: 7, borderRadius: 4 },
+  btnWrap:       { width: '100%' },
   btn: {
-    borderRadius: 18, paddingVertical: 17, alignItems: 'center', width: '100%',
+    borderRadius: 18, paddingVertical: 17, alignItems: 'center', width: '100%', flexDirection: 'row', justifyContent: 'center',
     shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
   },
-  btnText:  { color: '#fff', fontSize: 17, fontFamily: F.bold },
-  stepText: { fontSize: 12, fontFamily: F.medium },
+  btnWelcome:     { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.12 },
+  btnText:        { color: '#fff', fontSize: 17, fontFamily: F.bold },
+  btnTextWelcome: { color: '#f4511e' },
+
+  /* ── Welcome redesign ─────────────────────────────────────── */
+  welcomeContainer: { flex: 1, paddingHorizontal: 28, paddingTop: 24, justifyContent: 'flex-end', paddingBottom: 8 },
+  welcomeLayout:    { gap: 0 },
+  welcomeBrandRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 28 },
+  welcomeBrandDot:  { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.6)' },
+  welcomeBrandLabel:{ fontSize: 12, fontFamily: F.extrabold, color: 'rgba(255,255,255,0.7)', letterSpacing: 3 },
+  welcomeH1: {
+    fontSize: 54, fontFamily: F.extrabold, color: '#fff',
+    lineHeight: 60, letterSpacing: -1.5, marginBottom: 20,
+  },
+  welcomeTagline:  { fontSize: 16, fontFamily: F.medium, color: 'rgba(255,255,255,0.75)', lineHeight: 24, marginBottom: 28 },
+  welcomeChecklist:{ gap: 12 },
+  welcomeCheckRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  welcomeCheckDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.6)' },
+  welcomeCheckText:{ fontSize: 15, fontFamily: F.medium, color: 'rgba(255,255,255,0.9)', flex: 1 },
+
+  /* ── Daily Goal counter redesign ──────────────────────────── */
+  goalContainer:  { flex: 1, paddingHorizontal: 28, paddingTop: 20, justifyContent: 'center' },
+  goalLayout:     { gap: 0 },
+  goalHeading:    { fontSize: 38, fontFamily: F.extrabold, lineHeight: 46, letterSpacing: -1, marginBottom: 8 },
+  goalSubheading: { fontSize: 15, fontFamily: F.regular, lineHeight: 22, marginBottom: 44 },
+  counterRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 },
+  counterBtn:     { width: 60, height: 60, borderRadius: 30, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  counterDisplay: { alignItems: 'center', flex: 1 },
+  counterNumber:  { fontSize: 88, fontFamily: F.extrabold, lineHeight: 96, letterSpacing: -4 },
+  counterUnit:    { fontSize: 13, fontFamily: F.medium, marginTop: -4 },
+  goalScaleTrack: { height: 4, borderRadius: 2, overflow: 'hidden', marginBottom: 6 },
+  goalScaleFill:  { height: '100%', borderRadius: 2 },
+  goalScaleLabels:{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  goalScaleLabel: { fontSize: 11, fontFamily: F.medium },
+  counterCaption: { fontSize: 14, fontFamily: F.medium, lineHeight: 22 },
+
+  /* Hear About */
+  hearAboutGrid: { gap: 10, width: '100%', marginTop: 12 },
+  hearAboutCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 16, paddingVertical: 14 },
+  hearAboutIcon:  { fontSize: 20, width: 28, textAlign: 'center' },
+  hearAboutLabel: { fontSize: 15, fontFamily: F.medium, flex: 1 },
+
+  /* ── Shared slide typography ──────────────────────────────── */
+  stepLabel: {
+    fontSize: 11, fontFamily: F.extrabold, letterSpacing: 3,
+    marginBottom: 10, alignSelf: 'stretch', textAlign: 'left',
+  },
+  slideH2: {
+    fontSize: 36, fontFamily: F.extrabold, lineHeight: 44,
+    letterSpacing: -0.8, marginBottom: 8, alignSelf: 'stretch', textAlign: 'left',
+  },
+  slideSub: {
+    fontSize: 15, fontFamily: F.regular, lineHeight: 23,
+    marginBottom: 20, alignSelf: 'stretch', textAlign: 'left',
+  },
+
+  /* ── Features numbered cards ─────────────────────────────── */
+  featLayout: { flex: 1, paddingHorizontal: 28, paddingTop: 20 },
+  featList:   { gap: 12, marginTop: 20 },
+  featCard:   { borderRadius: 16, borderWidth: 1, padding: 20 },
+  featNumRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'flex-start', marginBottom: 10,
+  },
+  featNum:      { fontSize: 44, fontFamily: F.extrabold, lineHeight: 44, letterSpacing: -2 },
+  featIconBadge:{ width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  featTitle:    { fontSize: 17, fontFamily: F.bold, marginBottom: 4 },
+  featSub:      { fontSize: 13, fontFamily: F.regular, lineHeight: 19 },
 });
