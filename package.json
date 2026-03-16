@@ -19,5 +19,9 @@
   "dependencies": {
     "expo-speech": "^55.0.8",
     "react-native-keyboard-controller": "^1.20.7"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-native-worklets": "0.5.1"
   }
 }

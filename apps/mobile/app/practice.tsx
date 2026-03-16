@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, Platform, Alert,
-  KeyboardAvoidingView,
+  View, Text, StyleSheet, Pressable, ScrollView, Alert,
 } from 'react-native';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Audio } from 'expo-av';
@@ -577,9 +577,8 @@ Write a natural, fluent sample response the student could say. 2–4 sentences. 
   /* ── Render ── */
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.bg,  }]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
-        <View style={[styles.container, { backgroundColor: t.bg }]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]}>
+      <View style={[styles.container, { backgroundColor: t.bg }]}>
 
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: t.border }]}>
@@ -649,18 +648,20 @@ Write a natural, fluent sample response the student could say. 2–4 sentences. 
             )}
           </ScrollView>
 
-          {/* Bottom section — sphere above, input below */}
-          <PracticeBottomBar
-            stopped={stopped}
-            sphereState={sphereState}
-            audioLevel={audioLevel}
-            typeText={typeText}
-            sendingText={sendingText}
-            onChangeText={setTypeText}
-            onSendText={sendTextMessage}
-            onStop={handleStop}
-            onDone={handleBack}
-          />
+          {/* Bottom section — sticks above keyboard automatically */}
+          <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
+            <PracticeBottomBar
+              stopped={stopped}
+              sphereState={sphereState}
+              audioLevel={audioLevel}
+              typeText={typeText}
+              sendingText={sendingText}
+              onChangeText={setTypeText}
+              onSendText={sendTextMessage}
+              onStop={handleStop}
+              onDone={handleBack}
+            />
+          </KeyboardStickyView>
 
           {/* Grammar drawer — absolute overlay */}
           <GrammarDrawer
@@ -671,8 +672,7 @@ Write a natural, fluent sample response the student could say. 2–4 sentences. 
             onUseRewrite={setTypeText}
             t={t}
           />
-        </View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }

@@ -11,7 +11,7 @@ import { Volume2, Heart, Share2 } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 import type { Flashcard } from '@/src/data/flashcards';
-import { ttsSpeak, ttsStop } from '@/src/lib/openaiTts';
+import { ttsSpeak, ttsStop, ttsPrefetch } from '@/src/lib/openaiTts';
 import { captureAndShare } from '@/src/lib/share';
 import { useSettings } from '@/src/context/SettingsContext';
 
@@ -394,6 +394,11 @@ export function FlashCard({
   const heartScale   = useSharedValue(1);
   const burstScale   = useSharedValue(1);
   const burstOpacity = useSharedValue(0);
+
+  // Pre-warm TTS for this card as soon as it becomes active
+  useEffect(() => {
+    ttsPrefetch([card.word], ttsVoice, 0.85);
+  }, [card.word, ttsVoice]);
 
   // ── Heart burst animation when favorited ───────────────────────
   useEffect(() => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { VoiceSphere, type SphereState } from "./VoiceSphere";
+import { supabase } from "@/lib/supabase";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -58,7 +59,7 @@ Start by warmly greeting the user and asking which topic they'd like to practise
 
 /* ─── Constants ──────────────────────────────────────────────────────── */
 
-const LS_KEY       = "ielts_captured_words";
+const LS_KEY        = "ielts_captured_words";
 const AUDIO_POLL_MS = 50;
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
@@ -68,7 +69,7 @@ function loadWords(): CapturedWord[] {
   catch { return []; }
 }
 
-function saveWord(w: CapturedWord) {
+function saveWordLocally(w: CapturedWord) {
   const existing = loadWords();
   if (existing.some((e) => e.word.toLowerCase() === w.word.toLowerCase())) return;
   localStorage.setItem(LS_KEY, JSON.stringify([...existing, w]));
@@ -113,8 +114,108 @@ export const VoiceSession = forwardRef<VoiceSessionHandle, VoiceSessionProps>(
     const streamRef    = useRef<MediaStream | null>(null);
     const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
     const audioElRef   = useRef<HTMLAudioElement | null>(null);
-    // Tracks processed item IDs so StrictMode double-invocation can't produce duplicates
     const seenItemIds  = useRef<Set<string>>(new Set());
+
+    // ── Supabase conversation tracking ─────────────────────────────────
+    const conversationIdRef = useRef<string | null>(null);
+    const startedAtRef      = useRef<Date | null>(null);
+    const wordCountRef      = useRef(0);
+    const messageCountRef   = useRef(0);
+    const currentTopicRef   = useRef<string | null>(null);
+    const inputTokensRef    = useRef(0);
+    const outputTokensRef   = useRef(0);
+
+    /* ── Start a conversation record in Supabase ─────────────────────── */
+    const startConversation = useCallback(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      startedAtRef.current = new Date();
+      const { data, error } = await supabase
+        .from("conversations")
+        .insert({
+          user_id:    user.id,
+          started_at: startedAtRef.current.toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (!error && data) {
+        conversationIdRef.current = data.id;
+      }
+    }, []);
+
+    /* ── Save a single message ───────────────────────────────────────── */
+    const saveMessage = useCallback(async (role: "user" | "assistant", content: string) => {
+      if (!conversationIdRef.current) return;
+      await supabase.from("conversation_messages").insert({
+        conversation_id: conversationIdRef.current,
+        role,
+        content,
+      });
+      messageCountRef.current += 1;
+      const words = content.trim().split(/\s+/).filter(Boolean).length;
+      wordCountRef.current += words;
+    }, []);
+
+    /* ── Save a captured word to Supabase + localStorage ────────────── */
+    const saveWordToSupabase = useCallback(async (w: CapturedWord) => {
+      saveWordLocally(w);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase.from("captured_words").upsert({
+        user_id:         user.id,
+        conversation_id: conversationIdRef.current,
+        word:            w.word,
+        definition:      w.definition,
+      }, { onConflict: "user_id,word" });
+    }, []);
+
+    /* ── End conversation + log token usage ─────────────────────────── */
+    const endConversation = useCallback(async () => {
+      if (!conversationIdRef.current) return;
+
+      const endedAt     = new Date();
+      const durationSec = startedAtRef.current
+        ? Math.round((endedAt.getTime() - startedAtRef.current.getTime()) / 1000)
+        : null;
+
+      // Update conversation record
+      await supabase.from("conversations").update({
+        ended_at:      endedAt.toISOString(),
+        duration_secs: durationSec,
+        topic:         currentTopicRef.current,
+        message_count: messageCountRef.current,
+        word_count:    wordCountRef.current,
+      }).eq("id", conversationIdRef.current);
+
+      // Log token usage (realtime API — estimate based on message count if exact counts unavailable)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && (inputTokensRef.current > 0 || outputTokensRef.current > 0)) {
+        const total = inputTokensRef.current + outputTokensRef.current;
+        // gpt-4o-realtime pricing: ~$5/1M input, ~$20/1M output (audio rates vary)
+        const cost  = (inputTokensRef.current / 1_000_000) * 5
+                    + (outputTokensRef.current / 1_000_000) * 20;
+        await supabase.from("token_usage").insert({
+          user_id:         user.id,
+          conversation_id: conversationIdRef.current,
+          model:           "gpt-4o-realtime-preview-2024-12-17",
+          input_tokens:    inputTokensRef.current,
+          output_tokens:   outputTokensRef.current,
+          total_tokens:    total,
+          cost_usd:        cost,
+        });
+      }
+
+      // Reset refs
+      conversationIdRef.current = null;
+      startedAtRef.current      = null;
+      wordCountRef.current      = 0;
+      messageCountRef.current   = 0;
+      inputTokensRef.current    = 0;
+      outputTokensRef.current   = 0;
+    }, []);
 
     /* ── Audio-level polling ─────────────────────────────────────────── */
     const startAudioPoll = useCallback((analyser: AnalyserNode) => {
@@ -160,6 +261,8 @@ export const VoiceSession = forwardRef<VoiceSessionHandle, VoiceSessionProps>(
               },
             },
           }));
+          // Start conversation record once session is confirmed
+          startConversation();
           break;
 
         case "input_audio_buffer.speech_started":
@@ -170,39 +273,51 @@ export const VoiceSession = forwardRef<VoiceSessionHandle, VoiceSessionProps>(
           onStateChange("speaking");
           break;
 
+        /* ── Track token usage from response.done ───────────────────── */
+        case "response.done": {
+          const usage = (evt as { response?: { usage?: { input_tokens?: number; output_tokens?: number } } }).response?.usage;
+          if (usage) {
+            inputTokensRef.current  += usage.input_tokens  ?? 0;
+            outputTokensRef.current += usage.output_tokens ?? 0;
+          }
+          onStateChange("listening");
+          break;
+        }
+
         /* ── Streaming AI transcript delta ─────────────────────────── */
         case "response.audio_transcript.delta": {
           const delta = (evt as { delta?: string }).delta ?? "";
           if (delta) onAssistantDelta?.(delta);
-          // topic heuristic
           const m = delta.match(/\b(environment|technology|education|health|society|culture|travel|work|family|media)\b/i);
-          if (m) onTopicChange?.(m[1]);
+          if (m) {
+            currentTopicRef.current = m[1];
+            onTopicChange?.(m[1]);
+          }
           break;
         }
 
         /* ── Complete AI message ───────────────────────────────────── */
         case "response.audio_transcript.done": {
           const transcript = (evt as { transcript?: string }).transcript ?? "";
-          if (transcript) onMessage?.("assistant", transcript);
+          if (transcript) {
+            onMessage?.("assistant", transcript);
+            saveMessage("assistant", transcript);
+          }
           onStateChange("listening");
           break;
         }
 
-        /* ── Complete user message (Whisper transcription) ─────────── */
+        /* ── Complete user message ─────────────────────────────────── */
         case "conversation.item.input_audio_transcription.completed": {
-          // item_id deduplication — StrictMode fires two connections briefly
           const itemId     = (evt as { item_id?: string }).item_id ?? "";
           const transcript = (evt as { transcript?: string }).transcript ?? "";
           if (transcript.trim() && itemId && !seenItemIds.current.has(itemId)) {
             seenItemIds.current.add(itemId);
             onMessage?.("user", transcript.trim());
+            saveMessage("user", transcript.trim());
           }
           break;
         }
-
-        case "response.done":
-          onStateChange("listening");
-          break;
 
         /* ── New word event ─────────────────────────────────────────── */
         case "new_word": {
@@ -214,7 +329,7 @@ export const VoiceSession = forwardRef<VoiceSessionHandle, VoiceSessionProps>(
               example: nw.example,
               capturedAt: Date.now(),
             };
-            saveWord(captured);
+            saveWordToSupabase(captured);
             onWordCaptured?.(captured);
           }
           break;
@@ -222,11 +337,13 @@ export const VoiceSession = forwardRef<VoiceSessionHandle, VoiceSessionProps>(
 
         default: break;
       }
-    }, [onStateChange, onMessage, onAssistantDelta, onWordCaptured, onTopicChange]);
+    }, [onStateChange, onMessage, onAssistantDelta, onWordCaptured, onTopicChange,
+        startConversation, saveMessage, saveWordToSupabase]);
 
     /* ── Disconnect ──────────────────────────────────────────────────── */
     const disconnect = useCallback(() => {
       stopAudioPoll();
+      endConversation(); // save to Supabase before closing
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       dcRef.current?.close();
@@ -235,15 +352,13 @@ export const VoiceSession = forwardRef<VoiceSessionHandle, VoiceSessionProps>(
       pcRef.current = null;
       if (audioElRef.current) { audioElRef.current.srcObject = null; audioElRef.current = null; }
       onStateChange("idle");
-    }, [stopAudioPoll, onStateChange]);
+    }, [stopAudioPoll, endConversation, onStateChange]);
 
     /* ── Expose handle ───────────────────────────────────────────────── */
     useImperativeHandle(ref, () => ({ disconnect }), [disconnect]);
 
     /* ── Lifecycle ───────────────────────────────────────────────────── */
     useEffect(() => {
-      // cancelled flag prevents StrictMode's first (discarded) run from
-      // completing its async handshake and leaving a zombie connection alive.
       let cancelled = false;
 
       const run = async () => {
@@ -261,7 +376,7 @@ export const VoiceSession = forwardRef<VoiceSessionHandle, VoiceSessionProps>(
           if (!cancelled) { console.error("[VoiceSession] token error:", err); onStateChange("idle"); }
           return;
         }
-        if (cancelled) return; // StrictMode cleanup already ran — bail out
+        if (cancelled) return;
 
         // 2. Microphone
         let mic: MediaStream;
@@ -285,8 +400,8 @@ export const VoiceSession = forwardRef<VoiceSessionHandle, VoiceSessionProps>(
         // 4. PeerConnection
         const pc      = new RTCPeerConnection();
         pcRef.current = pc;
-        const audioEl     = new Audio();
-        audioEl.autoplay  = true;
+        const audioEl    = new Audio();
+        audioEl.autoplay = true;
         audioElRef.current = audioEl;
         pc.ontrack = (e) => { audioEl.srcObject = e.streams[0]; };
         mic.getTracks().forEach((t) => pc.addTrack(t, mic));

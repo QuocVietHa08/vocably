@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Dimensions, ScrollView,
-  Platform, ActivityIndicator,
+  Platform, ActivityIndicator, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -20,7 +20,9 @@ import { F } from '@/src/theme/fonts';
 import { useSettings } from '@/src/context/SettingsContext';
 import { useT } from '@/src/i18n/useT';
 import { allCards, type Flashcard } from '@/src/data/flashcards';
-import { ttsSpeak } from '@/src/lib/openaiTts';
+import { ttsSpeak, ttsPrefetch } from '@/src/lib/openaiTts';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import KeyboardAwareInput from '@/src/components/KeyboardAwareInput';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -85,8 +87,6 @@ const CEFR_LEVELS = [
   { key: 'C2', label: 'C2', description: 'I want native-level mastery', band: 8.5, color: '#a855f7' },
 ] as const;
 
-const SWIPE_THRESHOLD = 80;
-
 /* ─── Helpers ─────────────────────────────────────────────────── */
 
 function shuffle<T>(arr: T[]): T[] {
@@ -98,11 +98,35 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function getOnboardingCards(band: number): Flashcard[] {
-  const eligible = allCards.filter(
-    (c) => c.difficulty === 'easy' && (c.band == null || c.band <= band),
-  );
-  return shuffle(eligible.length >= 3 ? eligible : allCards.filter((c) => c.difficulty === 'easy')).slice(0, 3);
+/* ─── Quiz card types ─────────────────────────────────────────── */
+
+type CardMode = 'type' | 'swipe';
+type QuizCard = Flashcard & { mode: CardMode };
+
+// Pattern: type → swipe → type → swipe → type  (5 cards total)
+const CARD_MODES: CardMode[] = ['type', 'swipe', 'type', 'swipe', 'type'];
+
+function getOnboardingCards(band: number): QuizCard[] {
+  // Difficulty mix scales with the user's declared CEFR band (5 cards total)
+  const counts =
+    band <= 5 ? { easy: 3, medium: 2, hard: 0 } :
+    band <= 6 ? { easy: 2, medium: 2, hard: 1 } :
+               { easy: 1, medium: 2, hard: 2 };
+
+  const pool = (d: string) => {
+    const matched = allCards.filter((c) => c.difficulty === d && (c.band == null || c.band <= band + 1));
+    return matched.length >= 2 ? matched : allCards.filter((c) => c.difficulty === d);
+  };
+
+  const pick = (d: string, n: number) => n > 0 ? shuffle(pool(d)).slice(0, n) : [];
+
+  const base = [
+    ...pick('easy',   counts.easy),
+    ...pick('medium', counts.medium),
+    ...pick('hard',   counts.hard),
+  ].slice(0, 5);
+
+  return base.map((c, i) => ({ ...c, mode: CARD_MODES[i] ?? 'type' }));
 }
 
 /* ─── Animated dot ─────────────────────────────────────────────── */
@@ -577,180 +601,396 @@ function FeatureHighlightsSlide() {
   );
 }
 
-/* ─── Step 5: Mini flashcard session (enriched) ────────────────── */
+/* ─── Swipe Card (self-assessment: show word → reveal → swipe) ── */
 
-function MiniFlashcardSlide({
-  cards,
-  cardIndex,
-  onSwipe,
+const SWIPE_THRESHOLD = SCREEN_W * 0.32;
+
+function SwipeCard({
+  card,
+  onDone,
 }: {
-  cards: Flashcard[];
-  cardIndex: number;
-  onSwipe: () => void;
+  card: QuizCard;
+  onDone: (correct: boolean) => void;
 }) {
   const t = useTheme();
-  const T = useT();
   const { ttsVoice } = useSettings();
-  const [flipped, setFlipped] = useState(false);
-  const flipProgress = useSharedValue(0);
-  const translateX   = useSharedValue(0);
-  const cardOpacity  = useSharedValue(1);
+  const [revealed, setRevealed] = useState(false);
 
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+
+  const pan = Gesture.Pan()
+    .enabled(revealed)
+    .onUpdate((e) => {
+      translateX.value = e.translationX;
+      translateY.value = e.translationY * 0.2;
+    })
+    .onEnd((e) => {
+      if (e.translationX > SWIPE_THRESHOLD) {
+        translateX.value = withTiming(SCREEN_W * 1.5, { duration: 240 }, () => {
+          runOnJS(onDone)(true);
+        });
+      } else if (e.translationX < -SWIPE_THRESHOLD) {
+        translateX.value = withTiming(-SCREEN_W * 1.5, { duration: 240 }, () => {
+          runOnJS(onDone)(false);
+        });
+      } else {
+        translateX.value = withSpring(0, { damping: 22, stiffness: 280 });
+        translateY.value = withSpring(0, { damping: 22, stiffness: 280 });
+      }
+    });
+
+  const cardAnim = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { rotate: `${interpolate(translateX.value, [-SCREEN_W / 2, 0, SCREEN_W / 2], [-14, 0, 14])}deg` },
+    ],
+  }));
+
+  const knowOpacity = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [0, SCREEN_W * 0.22], [0, 1], 'clamp'),
+  }));
+
+  const skipOpacity = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [-SCREEN_W * 0.22, 0], [1, 0], 'clamp'),
+  }));
+
+  function handleReveal() {
+    setRevealed(true);
+    void ttsSpeak(card.word, ttsVoice, 0.85);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+
+  const diffColor = card.difficulty === 'hard' ? '#ef4444'
+    : card.difficulty === 'medium' ? '#f59e0b'
+    : '#22c55e';
+
+  return (
+    <GestureDetector gesture={pan}>
+      <Animated.View
+        style={[styles.swipeCard, { backgroundColor: t.surface, borderColor: t.border }, cardAnim]}
+      >
+        {/* Know-it overlay — right swipe */}
+        <Animated.View style={[styles.swipeOverlay, { backgroundColor: '#22c55e18', borderColor: '#22c55e' }, knowOpacity]}>
+          <Text style={[styles.swipeOverlayText, { color: '#22c55e' }]}>KNOW IT ✓</Text>
+        </Animated.View>
+
+        {/* Skip overlay — left swipe */}
+        <Animated.View style={[styles.swipeOverlay, { backgroundColor: '#ef444418', borderColor: '#ef4444' }, skipOpacity]}>
+          <Text style={[styles.swipeOverlayText, { color: '#ef4444' }]}>SKIP ✗</Text>
+        </Animated.View>
+
+        {/* ── Card body ── */}
+        <View style={styles.swipeCardBody}>
+          {/* Chips */}
+          <View style={styles.quizChips}>
+            {card.partOfSpeech && (
+              <View style={[styles.quizChip, { backgroundColor: '#f4511e12' }]}>
+                <Text style={[styles.quizChipText, { color: '#f4511e' }]}>{card.partOfSpeech}</Text>
+              </View>
+            )}
+            <View style={[styles.quizChip, { backgroundColor: `${diffColor}14` }]}>
+              <View style={[styles.diffDot, { backgroundColor: diffColor }]} />
+              <Text style={[styles.quizChipText, { color: diffColor }]}>{card.difficulty}</Text>
+            </View>
+          </View>
+
+          {/* Word — big focal point */}
+          <Text style={[styles.swipeWord, { color: t.fg }]}>{card.word}</Text>
+
+          {/* Phonetic */}
+          {card.phonetic && (
+            <Text style={[styles.swipePhonetic, { color: t.muted }]}>{card.phonetic}</Text>
+          )}
+
+          {!revealed ? (
+            /* Front: tap to reveal */
+            <Pressable
+              onPress={handleReveal}
+              style={[styles.revealBtn, { borderColor: '#0ea5e9', backgroundColor: '#0ea5e912' }]}
+              hitSlop={10}
+            >
+              <Text style={[styles.revealBtnText, { color: '#0ea5e9' }]}>Tap to see definition</Text>
+            </Pressable>
+          ) : (
+            /* Back: definition + swipe hint */
+            <>
+              <View style={[styles.swipeDivider, { backgroundColor: `${t.muted}20` }]} />
+              <Text style={[styles.swipeDefinition, { color: t.muted }]}>{card.definition}</Text>
+              <Text style={[styles.swipeHint, { color: `${t.muted}70` }]}>
+                {'← Skip  ·  Know it →'}
+              </Text>
+            </>
+          )}
+        </View>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+/* ─── Step 6: Vocabulary Knowledge Quiz ────────────────────────── */
+
+function VocabQuizSlide({
+  cards,
+  onComplete,
+}: {
+  cards: QuizCard[];
+  onComplete: (score: number, total: number) => void;
+}) {
+  const t = useTheme();
+  const { ttsVoice } = useSettings();
+
+  const [cardIndex, setCardIndex] = useState(0);
+  const [answer,    setAnswer]    = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const scoreRef = useRef(0);
+  const inputRef = useRef<TextInput>(null);
+
+  const progressW = useSharedValue(0);
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progressW.value}%` as any,
+  }));
+
+  // Pre-warm TTS cache for all cards the moment the quiz mounts
   useEffect(() => {
-    setFlipped(false);
-    flipProgress.value = withTiming(0, { duration: 200 });
-    translateX.value   = 0;
-    cardOpacity.value  = withTiming(1, { duration: 200 });
-  }, [cardIndex]);
+    ttsPrefetch(cards.map((c) => c.word), ttsVoice, 0.85);
+  }, []);
 
   const card = cards[cardIndex];
   if (!card) return null;
 
-  const example = card.examples?.[0] ?? card.example;
-  const diffColor = card.difficulty === 'hard' ? '#ef4444' : card.difficulty === 'medium' ? '#f59e0b' : '#22c55e';
+  const isSwipe = card.mode === 'swipe';
+  const diffColor = card.difficulty === 'hard' ? '#ef4444'
+    : card.difficulty === 'medium' ? '#f59e0b'
+    : '#22c55e';
 
-  function handleFlip() {
-    const toFlipped = !flipped;
-    flipProgress.value = withTiming(toFlipped ? 1 : 0, {
-      duration: 360,
-      easing: Easing.inOut(Easing.quad),
-    });
-    setFlipped(toFlipped);
+  useEffect(() => {
+    progressW.value = withTiming(
+      (cardIndex / cards.length) * 100,
+      { duration: 350, easing: Easing.out(Easing.cubic) },
+    );
+  }, [cardIndex]);
+
+  // Auto-focus input when landing on a 'type' card
+  useEffect(() => {
+    if (!isSwipe) {
+      setTimeout(() => inputRef.current?.focus(), 150);
+    }
+  }, [cardIndex, isSwipe]);
+
+  function advanceToNext() {
+    const nextIndex = cardIndex + 1;
+    if (nextIndex >= cards.length) {
+      onComplete(scoreRef.current, cards.length);
+      return;
+    }
+    setCardIndex(nextIndex);
+    setAnswer('');
+    setSubmitted(false);
+    setIsCorrect(false);
   }
 
-  function handleSpeak() {
+  function handleSubmit() {
+    if (!answer.trim() || submitted) return;
+    const correct = answer.trim().toLowerCase() === card.word.toLowerCase();
+    setIsCorrect(correct);
+    setSubmitted(true);
+    if (correct) {
+      scoreRef.current += 1;
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
     void ttsSpeak(card.word, ttsVoice, 0.85);
   }
 
-  const panGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .onUpdate((e) => {
-      translateX.value = e.translationX;
-    })
-    .onEnd((e) => {
-      const absX = Math.abs(e.translationX);
-      const absVelX = Math.abs(e.velocityX);
-      if (absX > SWIPE_THRESHOLD || absVelX > 500) {
-        const direction = e.translationX > 0 ? 1 : -1;
-        translateX.value = withTiming(SCREEN_W * 1.5 * direction, { duration: 300 });
-        cardOpacity.value = withTiming(0, { duration: 200 }, (done) => {
-          if (done) runOnJS(onSwipe)();
-        });
-      } else {
-        translateX.value = withSpring(0);
-      }
-    });
+  function handleNext() { advanceToNext(); }
 
-  const cardAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { rotate: `${interpolate(translateX.value, [-SCREEN_W, 0, SCREEN_W], [-15, 0, 15])}deg` },
-    ],
-    opacity: cardOpacity.value,
-  }));
+  function handleSwipeDone(correct: boolean) {
+    if (correct) scoreRef.current += 1;
+    void Haptics.notificationAsync(
+      correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning,
+    );
+    advanceToNext();
+  }
 
-  const frontStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(flipProgress.value, [0, 0.5, 0.5, 1], [1, 1, 0, 0]),
-    transform: [{ rotateY: `${interpolate(flipProgress.value, [0, 1], [0, 180])}deg` }],
-    backfaceVisibility: 'hidden' as const,
-  }));
-
-  const backStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(flipProgress.value, [0, 0.5, 0.5, 1], [0, 0, 1, 1]),
-    transform: [{ rotateY: `${interpolate(flipProgress.value, [0, 1], [180, 360])}deg` }],
-    backfaceVisibility: 'hidden' as const,
-  }));
-
+  /* ── Render ──────────────────────────────────────────── */
   return (
-    <>
-      <Animated.Text
-        entering={FadeInDown.delay(80).duration(400).springify()}
-        style={[styles.title, { color: t.fg, marginBottom: 8 }]}
+    <View style={styles.quizContainer}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.quizScrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        bottomOffset={80}
       >
-        {T.onboardingTryIt}
-      </Animated.Text>
-      <Animated.Text
-        entering={FadeInDown.delay(180).duration(400).springify()}
-        style={[styles.subtitle, { color: t.muted, marginBottom: 24 }]}
-      >
-        {T.onboardingTryItSub}
-      </Animated.Text>
-
-      {/* Progress dots */}
-      <View style={styles.miniProgress}>
-        {cards.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.miniDot,
-              { backgroundColor: i <= cardIndex ? '#f4511e' : `${t.muted}44` },
-            ]}
-          />
-        ))}
-      </View>
-
-      {/* Card */}
-      <GestureDetector gesture={panGesture}>
-        <Animated.View style={[styles.miniCard, cardAnimStyle]}>
-          {/* Front face — enriched */}
-          <Animated.View style={[styles.miniFace, { backgroundColor: t.surface, borderColor: t.border }, frontStyle]}>
-            <Pressable onPress={handleFlip} style={StyleSheet.absoluteFillObject}>
-              <View style={styles.miniFaceContent} pointerEvents="none">
-                {/* Meta pills */}
-                <View style={styles.miniMetaRow}>
-                  {card.band != null && (
-                    <View style={[styles.miniPill, { backgroundColor: `${t.muted}18` }]}>
-                      <Text style={[styles.miniPillText, { color: t.muted }]}>Band {card.band}</Text>
-                    </View>
-                  )}
-                  {card.category && (
-                    <View style={[styles.miniPill, { backgroundColor: `${t.muted}18` }]}>
-                      <Text style={[styles.miniPillText, { color: t.muted }]}>{card.category}</Text>
-                    </View>
-                  )}
-                  <View style={[styles.miniDiffDot, { backgroundColor: diffColor }]} />
-                </View>
-
-                <Text style={[styles.miniWord, { color: t.fg }]}>{card.word}</Text>
-                {card.phonetic && <Text style={[styles.miniPhonetic, { color: t.muted }]}>{card.phonetic}</Text>}
-                {card.partOfSpeech && (
-                  <Text style={[styles.miniPos, { color: '#f4511e' }]}>{card.partOfSpeech}</Text>
-                )}
-                <Text style={[styles.hint, { color: t.muted }]}>{T.onboardingTapReveal}</Text>
-              </View>
-            </Pressable>
-            <Pressable onPress={handleSpeak} style={styles.speakBtn} hitSlop={10}>
-              <Volume2 size={18} color={t.muted} strokeWidth={1.8} />
-            </Pressable>
-          </Animated.View>
-
-          {/* Back face — enriched */}
-          <Animated.View style={[styles.miniFace, { backgroundColor: t.surface, borderColor: t.border }, backStyle]}>
-            <Pressable onPress={handleFlip} style={StyleSheet.absoluteFillObject}>
-              <View style={[styles.miniFaceContent, { justifyContent: 'flex-start', paddingTop: 28 }]} pointerEvents="none">
-                <Text style={[styles.miniWord, { color: t.fg, fontSize: 26 }]}>{card.word}</Text>
-                <View style={[styles.miniDivider, { backgroundColor: t.border }]} />
-                <Text style={[styles.miniDefinition, { color: t.fg }]}>{card.definition}</Text>
-                {example ? (
-                  <View style={styles.miniExampleRow}>
-                    <Text style={[styles.miniExampleQuote, { color: '#f4511e' }]}>"</Text>
-                    <Text style={[styles.miniExampleText, { color: t.muted }]}>{example}</Text>
-                  </View>
-                ) : null}
-                {card.tip ? (
-                  <View style={[styles.miniTipBox, { borderColor: t.border }]}>
-                    <Text style={[styles.miniTipText, { color: t.muted }]}>💡 {card.tip}</Text>
-                  </View>
-                ) : null}
-              </View>
-            </Pressable>
-            <Pressable onPress={handleSpeak} style={styles.speakBtn} hitSlop={10}>
-              <Volume2 size={18} color={t.muted} strokeWidth={1.8} />
-            </Pressable>
-          </Animated.View>
+        {/* ── Header row ── */}
+        <Animated.View
+          entering={FadeInDown.delay(60).duration(320).springify()}
+          style={styles.quizHeader}
+        >
+          <Text style={[styles.quizCounter, { color: t.muted }]}>
+            <Text style={{ color: t.fg, fontFamily: F.bold }}>{cardIndex + 1}</Text>
+            {' / '}{cards.length}
+          </Text>
+          <Text style={[styles.quizTitle, { color: t.fg }]}>Vocabulary Check</Text>
+          <View style={[styles.diffBadge, { backgroundColor: `${diffColor}18` }]}>
+            <View style={[styles.diffDot, { backgroundColor: diffColor }]} />
+            <Text style={[styles.diffLabel, { color: diffColor }]}>{card.difficulty}</Text>
+          </View>
         </Animated.View>
-      </GestureDetector>
-    </>
+
+        {/* ── Animated progress bar ── */}
+        <View style={[styles.quizProgressTrack, { backgroundColor: `${t.muted}18` }]}>
+          <Animated.View style={[styles.quizProgressFill, { backgroundColor: '#0ea5e9' }, progressStyle]} />
+        </View>
+
+        {/* ── Mode pill ── */}
+        <View style={styles.modePillRow}>
+          <View style={[styles.modePill, { backgroundColor: isSwipe ? '#8b5cf614' : '#0ea5e914' }]}>
+            <Text style={[styles.modePillText, { color: isSwipe ? '#8b5cf6' : '#0ea5e9' }]}>
+              {isSwipe ? '👆  Swipe to rate' : '⌨️  Type the word'}
+            </Text>
+          </View>
+        </View>
+
+        {isSwipe ? (
+          /* ── Swipe card ── */
+          <Animated.View key={`swipe-${cardIndex}`} entering={FadeIn.duration(200)}>
+            <SwipeCard card={card} onDone={handleSwipeDone} />
+          </Animated.View>
+        ) : (
+          /* ── Type card: show definition, user types word ── */
+          <Animated.View
+            key={`type-${cardIndex}`}
+            entering={FadeIn.duration(200)}
+            style={[styles.quizCard, {
+              backgroundColor: t.surface,
+              borderColor: submitted ? (isCorrect ? '#22c55e55' : '#ef444455') : t.border,
+            }]}
+          >
+            {/* Chips */}
+            <View style={styles.quizChips}>
+              {card.partOfSpeech && (
+                <View style={[styles.quizChip, { backgroundColor: '#f4511e12' }]}>
+                  <Text style={[styles.quizChipText, { color: '#f4511e' }]}>{card.partOfSpeech}</Text>
+                </View>
+              )}
+              {card.category && (
+                <View style={[styles.quizChip, { backgroundColor: `${t.muted}12` }]}>
+                  <Text style={[styles.quizChipText, { color: t.muted }]}>{card.category}</Text>
+                </View>
+              )}
+              {card.band != null && (
+                <View style={[styles.quizChip, { backgroundColor: '#0ea5e912' }]}>
+                  <Text style={[styles.quizChipText, { color: '#0ea5e9' }]}>Band {card.band}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Definition — the main clue */}
+            <Text style={[styles.quizDefinition, { color: t.fg }]}>{card.definition}</Text>
+
+            {/* Phonetic */}
+            {card.phonetic && (
+              <Text style={[styles.quizPhonetic, { color: t.muted }]}>{card.phonetic}</Text>
+            )}
+
+            {/* Gapped example */}
+            {card.example ? (
+              <View style={[styles.quizExampleBox, { borderColor: t.border, backgroundColor: `${t.muted}08` }]}>
+                <Text style={[styles.quizExampleText, { color: t.muted }]}>
+                  "{card.example.replace(new RegExp(card.word, 'gi'), '___')}"
+                </Text>
+              </View>
+            ) : null}
+          </Animated.View>
+        )}
+
+        {/* ── Feedback banner (type cards only) ── */}
+        {!isSwipe && submitted && (
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            style={[
+              styles.quizFeedback,
+              {
+                backgroundColor: isCorrect ? '#22c55e12' : '#ef444412',
+                borderColor:     isCorrect ? '#22c55e'   : '#ef4444',
+                borderWidth: 1.5,
+              },
+            ]}
+          >
+            <View style={[
+              styles.quizFeedbackIconBadge,
+              { backgroundColor: isCorrect ? '#22c55e' : '#ef4444' },
+            ]}>
+              <Text style={styles.quizFeedbackIconText}>{isCorrect ? '✓' : '✗'}</Text>
+            </View>
+
+            <View style={styles.quizFeedbackBody}>
+              <Text style={[styles.quizFeedbackTitle, { color: isCorrect ? '#22c55e' : '#ef4444' }]}>
+                {isCorrect ? 'Correct!' : 'The answer was:'}
+              </Text>
+              {!isCorrect && (
+                <Text style={[styles.quizFeedbackWord, { color: t.fg }]}>
+                  {card.word}
+                  {card.phonetic
+                    ? <Text style={{ fontFamily: F.regular, fontSize: 13, color: t.muted }}> {card.phonetic}</Text>
+                    : null}
+                </Text>
+              )}
+              {isCorrect && card.phonetic && (
+                <Text style={[styles.quizFeedbackPhonetic, { color: t.muted }]}>{card.phonetic}</Text>
+              )}
+            </View>
+
+            <Pressable
+              onPress={() => void ttsSpeak(card.word, ttsVoice, 0.85)}
+              style={[styles.quizSpeakBtn, { backgroundColor: `${t.muted}14` }]}
+              hitSlop={10}
+            >
+              <Volume2 size={17} color={t.muted} strokeWidth={1.8} />
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* ── Progress dots ── */}
+        <View style={styles.quizAnswerDots}>
+          {cards.map((c, i) => (
+            <View
+              key={i}
+              style={[
+                styles.quizAnswerDot,
+                {
+                  backgroundColor: i < cardIndex ? '#22c55e'
+                    : i === cardIndex ? (c.mode === 'swipe' ? '#8b5cf6' : '#0ea5e9')
+                    : `${t.muted}30`,
+                  width: i === cardIndex ? 20 : 8,
+                },
+              ]}
+            />
+          ))}
+        </View>
+      </KeyboardAwareScrollView>
+
+      {/* ── Input row — only shown for 'type' cards ── */}
+      {!isSwipe && (
+        <KeyboardAwareInput
+          ref={inputRef}
+          value={answer}
+          onChangeText={setAnswer}
+          onSubmit={handleSubmit}
+          submitted={submitted}
+          onNext={handleNext}
+          isCorrect={isCorrect}
+          placeholder="Type the word…"
+          sticky
+          bottomOffset={4}
+        />
+      )}
+    </View>
   );
 }
 
@@ -814,9 +1054,29 @@ function ConfettiParticle({ delay, color }: { delay: number; color: string }) {
   );
 }
 
-function CelebrationSlide({ learnedWords }: { learnedWords: Flashcard[] }) {
+function CelebrationSlide({
+  score,
+  total,
+  cards,
+}: {
+  score: number;
+  total: number;
+  cards: Flashcard[];
+}) {
   const t = useTheme();
   const T = useT();
+
+  const pct        = total > 0 ? score / total : 0;
+  const emoji      = pct >= 0.83 ? '🌟' : pct >= 0.5 ? '🎯' : '💪';
+  const headline   = pct >= 0.83 ? T.onboardingAmazing : pct >= 0.5 ? 'Great effort!' : 'Keep practising!';
+  const barColor   = pct >= 0.83 ? '#22c55e' : pct >= 0.5 ? '#f59e0b' : '#0ea5e9';
+
+  const barWidth   = useSharedValue(0);
+  const barStyle   = useAnimatedStyle(() => ({ width: `${barWidth.value}%` as any }));
+
+  useEffect(() => {
+    barWidth.value = withDelay(500, withTiming(pct * 100, { duration: 900, easing: Easing.out(Easing.cubic) }));
+  }, []);
 
   return (
     <>
@@ -830,25 +1090,52 @@ function CelebrationSlide({ learnedWords }: { learnedWords: Flashcard[] }) {
         ))}
       </View>
 
+      {/* Big emoji */}
+      <Animated.Text
+        entering={FadeInDown.delay(200).duration(400).springify()}
+        style={styles.celebEmoji}
+      >
+        {emoji}
+      </Animated.Text>
+
       <Animated.Text
         entering={FadeInDown.delay(300).duration(400).springify()}
         style={[styles.celebTitle, { color: t.fg }]}
       >
-        {T.onboardingAmazing}
+        {headline}
       </Animated.Text>
 
-      <Animated.Text
-        entering={FadeInDown.delay(450).duration(400).springify()}
-        style={[styles.celebSub, { color: t.muted }]}
+      {/* Score pill */}
+      <Animated.View
+        entering={FadeInDown.delay(400).duration(400).springify()}
+        style={[styles.scorePill, { backgroundColor: `${barColor}18`, borderColor: barColor }]}
       >
-        {T.onboardingLearned.replace('{0}', String(learnedWords.length))}
-      </Animated.Text>
+        <Text style={[styles.scoreText, { color: barColor }]}>
+          {score} <Text style={{ fontSize: 18, fontFamily: F.regular }}>/ {total}</Text>
+        </Text>
+        <Text style={[styles.scoreLabel, { color: barColor }]}>words correct</Text>
+      </Animated.View>
 
+      {/* Animated score bar */}
+      <Animated.View
+        entering={FadeInDown.delay(480).duration(400).springify()}
+        style={styles.scoreBarWrap}
+      >
+        <View style={[styles.scoreBarTrack, { backgroundColor: `${t.muted}18` }]}>
+          <Animated.View style={[styles.scoreBarFill, { backgroundColor: barColor }, barStyle]} />
+        </View>
+        <View style={styles.scoreBarLabels}>
+          <Text style={[styles.scoreBarLabel, { color: t.muted }]}>0</Text>
+          <Text style={[styles.scoreBarLabel, { color: t.muted }]}>{total}</Text>
+        </View>
+      </Animated.View>
+
+      {/* Words reviewed */}
       <Animated.View
         entering={FadeInDown.delay(600).duration(400).springify()}
         style={styles.learnedWordsRow}
       >
-        {learnedWords.map((card) => (
+        {cards.map((card) => (
           <View key={card.word} style={[styles.learnedPill, { backgroundColor: t.surface, borderColor: t.border }]}>
             <Text style={[styles.learnedWord, { color: t.fg }]}>{card.word}</Text>
           </View>
@@ -944,6 +1231,12 @@ function PersonalPlanSlide({ onComplete }: { onComplete: () => void }) {
 
 /* ─── Step 8: Notifications ─────────────────────────────────────── */
 
+const NOTIF_PERKS = [
+  { icon: '🔥', text: 'Daily streak reminders to keep momentum' },
+  { icon: '📅', text: 'Smart review nudges at the best time' },
+  { icon: '🏆', text: 'Celebrate milestones as you hit them' },
+];
+
 function NotificationSlide({ onEnable, onSkip }: { onEnable: () => void; onSkip: () => void }) {
   const t = useTheme();
   const T = useT();
@@ -956,37 +1249,60 @@ function NotificationSlide({ onEnable, onSkip }: { onEnable: () => void; onSkip:
   }
 
   return (
-    <>
+    <View style={styles.notifLayout}>
+      {/* Icon */}
       <Animated.View
-        entering={FadeInDown.delay(80).duration(400).springify()}
-        style={styles.iconContainer}
+        entering={FadeInDown.delay(60).duration(400).springify()}
+        style={styles.notifIconWrap}
       >
-        <View style={[styles.iconCircle, { backgroundColor: `${accent}18` }]}>
-          <Bell size={52} color={accent} strokeWidth={1.5} />
+        <View style={[styles.notifIconCircle, { backgroundColor: `${accent}18` }]}>
+          <Bell size={38} color={accent} strokeWidth={1.5} />
         </View>
+        <View style={[styles.notifPingOuter, { borderColor: `${accent}30` }]} />
+        <View style={[styles.notifPingInner, { borderColor: `${accent}18` }]} />
       </Animated.View>
 
       <Animated.Text
-        entering={FadeInDown.delay(200).duration(400).springify()}
-        style={[styles.title, { color: t.fg }]}
+        entering={FadeInDown.delay(160).duration(400).springify()}
+        style={[styles.notifHeading, { color: t.fg }]}
       >
         {T.onboardingNotifTitle}
       </Animated.Text>
       <Animated.Text
-        entering={FadeInDown.delay(300).duration(400).springify()}
-        style={[styles.subtitle, { color: t.muted }]}
+        entering={FadeInDown.delay(240).duration(400).springify()}
+        style={[styles.notifSub, { color: t.muted }]}
       >
         {T.onboardingNotifSub}
       </Animated.Text>
 
+      {/* Perks list */}
       <Animated.View
-        entering={FadeInDown.delay(420).duration(400).springify()}
-        style={styles.notifButtons}
+        entering={FadeInDown.delay(320).duration(400).springify()}
+        style={[styles.notifPerksList, { backgroundColor: t.surface, borderColor: t.border }]}
+      >
+        {NOTIF_PERKS.map((p, i) => (
+          <View
+            key={i}
+            style={[
+              styles.notifPerkRow,
+              i < NOTIF_PERKS.length - 1 && { borderBottomWidth: 1, borderBottomColor: t.border },
+            ]}
+          >
+            <Text style={styles.notifPerkIcon}>{p.icon}</Text>
+            <Text style={[styles.notifPerkText, { color: t.fg }]}>{p.text}</Text>
+          </View>
+        ))}
+      </Animated.View>
+
+      {/* CTA */}
+      <Animated.View
+        entering={FadeInDown.delay(460).duration(400).springify()}
+        style={styles.notifCta}
       >
         <Pressable
           onPress={handleEnable}
           disabled={loading}
-          style={[styles.btn, { backgroundColor: accent }]}
+          style={[styles.btn, { backgroundColor: accent, shadowColor: accent }]}
         >
           {loading
             ? <ActivityIndicator color="#fff" />
@@ -997,17 +1313,24 @@ function NotificationSlide({ onEnable, onSkip }: { onEnable: () => void; onSkip:
           <Text style={[styles.skipLinkText, { color: t.muted }]}>{T.onboardingNotifSkip}</Text>
         </Pressable>
       </Animated.View>
-    </>
+    </View>
   );
 }
 
 /* ─── Step 9: Sign In ──────────────────────────────────────────── */
+
+const SIGNIN_BENEFITS = [
+  { icon: '☁️', text: 'Sync progress across all your devices' },
+  { icon: '🔒', text: 'Your data is private and secure' },
+  { icon: '🎯', text: 'Personalised learning that grows with you' },
+];
 
 function SignInSlide({ onNext }: { onNext: () => void }) {
   const t = useTheme();
   const T = useT();
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingApple,  setLoadingApple]  = useState(false);
+  const accent = '#f4511e';
 
   function handleGoogle() {
     setLoadingGoogle(true);
@@ -1020,79 +1343,117 @@ function SignInSlide({ onNext }: { onNext: () => void }) {
   }
 
   return (
-    <>
+    <View style={styles.signInLayout}>
+      {/* Brand mark */}
       <Animated.View
-        entering={FadeInDown.delay(80).duration(400).springify()}
-        style={styles.signInLogo}
+        entering={FadeInDown.delay(60).duration(400).springify()}
+        style={styles.signInBrandRow}
       >
-        <View style={[styles.signInLogoCircle, { backgroundColor: '#f4511e' }]}>
+        <View style={[styles.signInLogoCircle, { backgroundColor: accent }]}>
           <Text style={styles.signInLogoEmoji}>🎙</Text>
         </View>
+        <Text style={[styles.signInBrandName, { color: t.fg }]}>Vocally</Text>
       </Animated.View>
 
       <Animated.Text
-        entering={FadeInDown.delay(200).duration(400).springify()}
-        style={[styles.title, { color: t.fg }]}
+        entering={FadeInDown.delay(160).duration(400).springify()}
+        style={[styles.signInHeading, { color: t.fg }]}
       >
         {T.onboardingSignInTitle}
       </Animated.Text>
       <Animated.Text
-        entering={FadeInDown.delay(300).duration(400).springify()}
-        style={[styles.subtitle, { color: t.muted }]}
+        entering={FadeInDown.delay(240).duration(400).springify()}
+        style={[styles.signInSub, { color: t.muted }]}
       >
         {T.onboardingSignInSub}
       </Animated.Text>
 
+      {/* Benefits */}
       <Animated.View
-        entering={FadeInDown.delay(420).duration(400).springify()}
+        entering={FadeInDown.delay(320).duration(400).springify()}
+        style={styles.signInBenefits}
+      >
+        {SIGNIN_BENEFITS.map((b, i) => (
+          <View key={i} style={styles.signInBenefitRow}>
+            <Text style={styles.signInBenefitIcon}>{b.icon}</Text>
+            <Text style={[styles.signInBenefitText, { color: t.muted }]}>{b.text}</Text>
+          </View>
+        ))}
+      </Animated.View>
+
+      {/* Auth buttons */}
+      <Animated.View
+        entering={FadeInDown.delay(440).duration(400).springify()}
         style={styles.signInButtons}
       >
+        {/* ── Google ── */}
         <Pressable
           onPress={handleGoogle}
           disabled={loadingGoogle || loadingApple}
-          style={[styles.socialBtn, { backgroundColor: t.surface, borderColor: t.border }]}
+          style={({ pressed }) => [
+            styles.authBtn,
+            styles.authBtnGoogle,
+            { opacity: pressed ? 0.88 : 1 },
+          ]}
         >
-          {loadingGoogle
-            ? <ActivityIndicator size="small" color={t.fg} />
-            : <Text style={styles.googleG}>G</Text>
-          }
-          <Text style={[styles.socialBtnText, { color: t.fg }]}>{T.onboardingSignInGoogle}</Text>
+          {loadingGoogle ? (
+            <ActivityIndicator size="small" color="#1a1a1a" />
+          ) : (
+            <>
+              {/* Google G logo — coloured letter in a white circle */}
+              <View style={styles.googleLogoWrap}>
+                <Text style={styles.googleLogoG}>
+                  <Text style={{ color: '#4285F4' }}>G</Text>
+                </Text>
+              </View>
+              <Text style={styles.authBtnGoogleText}>{T.onboardingSignInGoogle}</Text>
+              <View style={styles.authBtnSpacer} />
+            </>
+          )}
         </Pressable>
 
+        {/* ── Apple (iOS only) ── */}
         {Platform.OS === 'ios' && (
           <Pressable
             onPress={handleApple}
             disabled={loadingGoogle || loadingApple}
-            style={[
-              styles.socialBtn,
-              { backgroundColor: t.dark ? '#ffffff' : '#000000', borderWidth: 0 },
+            style={({ pressed }) => [
+              styles.authBtn,
+              styles.authBtnApple,
+              { backgroundColor: t.dark ? '#f5f5f5' : '#0a0a0a', opacity: pressed ? 0.88 : 1 },
             ]}
           >
-            {loadingApple
-              ? <ActivityIndicator size="small" color={t.dark ? '#000' : '#fff'} />
-              : <Text style={[styles.appleLogo, { color: t.dark ? '#000' : '#fff' }]}></Text>
-            }
-            <Text style={[styles.socialBtnText, { color: t.dark ? '#000000' : '#ffffff' }]}>
-              {T.onboardingSignInApple}
-            </Text>
+            {loadingApple ? (
+              <ActivityIndicator size="small" color={t.dark ? '#0a0a0a' : '#f5f5f5'} />
+            ) : (
+              <>
+                <Text style={[styles.authBtnAppleLogo, { color: t.dark ? '#0a0a0a' : '#f5f5f5' }]}>
+
+                </Text>
+                <Text style={[styles.authBtnAppleText, { color: t.dark ? '#0a0a0a' : '#f5f5f5' }]}>
+                  {T.onboardingSignInApple}
+                </Text>
+                <View style={styles.authBtnSpacer} />
+              </>
+            )}
           </Pressable>
         )}
 
-        <Pressable onPress={onNext} hitSlop={12}>
+        <Pressable onPress={onNext} hitSlop={12} style={{ marginTop: 4 }}>
           <Text style={[styles.skipLinkText, { color: t.muted }]}>{T.onboardingSignInSkip}</Text>
         </Pressable>
       </Animated.View>
 
       <Animated.Text
-        entering={FadeInDown.delay(540).duration(400).springify()}
+        entering={FadeInDown.delay(560).duration(400).springify()}
         style={[styles.termsText, { color: t.muted }]}
       >
         {T.onboardingSignInTerms}{' '}
-        <Text style={{ color: '#f4511e' }}>{T.onboardingTermsOfService}</Text>
+        <Text style={{ color: accent }}>{T.onboardingTermsOfService}</Text>
         {' & '}
-        <Text style={{ color: '#f4511e' }}>{T.onboardingPrivacyPolicy}</Text>
+        <Text style={{ color: accent }}>{T.onboardingPrivacyPolicy}</Text>
       </Animated.Text>
-    </>
+    </View>
   );
 }
 
@@ -1219,8 +1580,19 @@ function PaywallSlide({ onNext }: { onNext: () => void }) {
 
       <Text style={[styles.trialText, { color: t.muted }]}>{T.cancelAnytime}</Text>
 
-      <Pressable onPress={onNext} hitSlop={12} style={{ marginTop: 8, alignSelf: 'center' }}>
-        <Text style={[styles.skipLinkText, { color: t.muted }]}>{T.onboardingPaywallSkip}</Text>
+      {/* Free tier CTA */}
+      <View style={[styles.freeTierDivider]}>
+        <View style={[styles.freeTierLine, { backgroundColor: `${t.muted}20` }]} />
+        <Text style={[styles.freeTierOr, { color: t.muted }]}>or</Text>
+        <View style={[styles.freeTierLine, { backgroundColor: `${t.muted}20` }]} />
+      </View>
+      <Pressable
+        onPress={onNext}
+        hitSlop={8}
+        style={[styles.freeTierBtn, { borderColor: t.border, backgroundColor: t.surface }]}
+      >
+        <Text style={[styles.freeTierBtnText, { color: t.fg }]}>Continue with Free</Text>
+        <Text style={[styles.freeTierBtnSub, { color: t.muted }]}>Limited features · No card needed</Text>
       </Pressable>
 
       <View style={styles.paywallFooter}>
@@ -1303,8 +1675,9 @@ export default function WelcomeScreen() {
   const [targetLevelSel,  setTargetLevelSel]  = useState('');
   const [dailyGoalSel,    setDailyGoalSel]    = useState(10);
   const [hearAboutSel,    setHearAboutSel]    = useState('');
-  const [onboardingCards, setOnboardingCards]  = useState<Flashcard[]>([]);
-  const [cardIndex,       setCardIndex]       = useState(0);
+  const [onboardingCards, setOnboardingCards]  = useState<QuizCard[]>([]);
+  const [quizScore,       setQuizScore]       = useState(0);
+  const [quizTotal,       setQuizTotal]       = useState(6);
 
   function handleLangSelect(code: string) {
     setLangSel(code);
@@ -1343,12 +1716,10 @@ export default function WelcomeScreen() {
     setStep((s) => s + 1);
   }
 
-  function handleFlashcardSwipe() {
-    if (cardIndex + 1 >= onboardingCards.length) {
-      setStep(Step.Celebration);
-    } else {
-      setCardIndex((i) => i + 1);
-    }
+  function handleQuizComplete(score: number, total: number) {
+    setQuizScore(score);
+    setQuizTotal(total);
+    setStep(Step.Celebration);
   }
 
   const btnScale = useSharedValue(1);
@@ -1406,7 +1777,8 @@ export default function WelcomeScreen() {
   const isWelcome = step === Step.Welcome;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: isWelcome ? '#f4511e' : t.bg }]}>
+    <View style={[styles.screenBg, { backgroundColor: isWelcome ? '#f4511e' : t.bg }]}>
+    <SafeAreaView style={styles.safe}>
       {!isWelcome && <BackgroundBlob key={`blob-${step}`} color={stepAccent} />}
 
       {showSkip && (
@@ -1457,13 +1829,13 @@ export default function WelcomeScreen() {
         )}
 
         {step === Step.Flashcards && (
-          <View style={styles.content}>
-            <MiniFlashcardSlide cards={onboardingCards} cardIndex={cardIndex} onSwipe={handleFlashcardSwipe} />
-          </View>
+          <VocabQuizSlide cards={onboardingCards} onComplete={handleQuizComplete} />
         )}
 
         {step === Step.Celebration && (
-          <View style={styles.content}><CelebrationSlide learnedWords={onboardingCards} /></View>
+          <View style={styles.content}>
+            <CelebrationSlide score={quizScore} total={quizTotal} cards={onboardingCards} />
+          </View>
         )}
 
         {step === Step.PersonalPlan && (
@@ -1477,11 +1849,11 @@ export default function WelcomeScreen() {
         )}
 
         {step === Step.Notifications && (
-          <View style={styles.content}><NotificationSlide onEnable={next} onSkip={next} /></View>
+          <NotificationSlide onEnable={next} onSkip={next} />
         )}
 
         {step === Step.SignIn && (
-          <View style={styles.content}><SignInSlide onNext={next} /></View>
+          <SignInSlide onNext={next} />
         )}
 
         {step === Step.Paywall && (
@@ -1521,6 +1893,7 @@ export default function WelcomeScreen() {
         </View>
       )}
     </SafeAreaView>
+    </View>
   );
 }
 
@@ -1529,7 +1902,8 @@ export default function WelcomeScreen() {
 const ICON_SIZE = 140;
 
 const styles = StyleSheet.create({
-  safe:  { flex: 1 },
+  screenBg: { flex: 1 },   // full-screen wrapper — paints behind Dynamic Island / status bar
+  safe:     { flex: 1 },
 
   blob: {
     position: 'absolute',
@@ -1642,11 +2016,125 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(128,128,128,0.1)',
   },
 
+  /* ─ Vocab Quiz ─ */
+  quizContainer: {
+    flex: 1,
+  },
+  quizScrollContent: {
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20,
+  },
+  quizHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  quizCounter:  { fontSize: 13, fontFamily: F.regular },
+  quizTitle:    { fontSize: 15, fontFamily: F.bold, textAlign: 'center', flex: 1 },
+  diffBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  diffDot:   { width: 6, height: 6, borderRadius: 3 },
+  diffLabel: { fontSize: 11, fontFamily: F.semibold, textTransform: 'capitalize' },
+
+  quizProgressTrack: { height: 5, borderRadius: 3, marginBottom: 18, overflow: 'hidden' },
+  quizProgressFill:  { height: '100%', borderRadius: 3 },
+
+  quizCard: {
+    borderRadius: 20, borderWidth: 1.5, padding: 22,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 14, elevation: 4,
+    gap: 12, marginBottom: 12,
+  },
+  quizChips:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  quizChip:     { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
+  quizChipText: { fontSize: 11, fontFamily: F.medium },
+
+  quizDefinition: { fontSize: 21, fontFamily: F.bold, lineHeight: 30 },
+  quizPhonetic:   { fontSize: 14, fontFamily: F.regular, marginTop: -4 },
+
+  quizExampleBox: {
+    borderRadius: 12, borderWidth: 1, padding: 12,
+  },
+  quizExampleText: { fontSize: 13, fontStyle: 'italic', lineHeight: 20 },
+
+  /* Feedback banner — lives BELOW the card, not inside it */
+  quizFeedback: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 16, padding: 14, marginBottom: 16,
+    minHeight: 62,
+  },
+  quizFeedbackIconBadge: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  quizFeedbackIconText:  { fontSize: 18, color: '#fff', fontFamily: F.bold },
+  quizFeedbackBody:      { flex: 1, gap: 2 },
+  quizFeedbackTitle:     { fontSize: 14, fontFamily: F.semibold },
+  quizFeedbackWord:      { fontSize: 18, fontFamily: F.bold },
+  quizFeedbackPhonetic:  { fontSize: 13, fontFamily: F.regular },
+  quizSpeakBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  quizAnswerDots: { flexDirection: 'row', gap: 7, justifyContent: 'center', alignItems: 'center' },
+  quizAnswerDot:  { height: 8, borderRadius: 4 },
+
+  /* ─ Mode pill ─ */
+  modePillRow: { alignItems: 'center', marginBottom: 12 },
+  modePill: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
+  modePillText: { fontSize: 12, fontFamily: F.semibold },
+
+  /* ─ Swipe card ─ */
+  swipeCard: {
+    borderRadius: 24, borderWidth: 1.5, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1, shadowRadius: 20, elevation: 6,
+    marginBottom: 12, marginHorizontal: 2,
+  },
+  swipeCardBody: { padding: 24, gap: 12 },
+
+  swipeOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24, borderWidth: 2,
+    alignItems: 'center', justifyContent: 'center', zIndex: 10,
+  },
+  swipeOverlayText: { fontSize: 22, fontFamily: F.extrabold, letterSpacing: 1 },
+
+  swipeWord: { fontSize: 38, fontFamily: F.extrabold, letterSpacing: -1, lineHeight: 44 },
+  swipePhonetic: { fontSize: 15, fontFamily: F.regular, marginTop: -4 },
+
+  revealBtn: {
+    marginTop: 8, borderRadius: 14, borderWidth: 1.5,
+    paddingVertical: 13, alignItems: 'center',
+  },
+  revealBtnText: { fontSize: 15, fontFamily: F.semibold },
+
+  swipeDivider: { height: 1, borderRadius: 1 },
+  swipeDefinition: { fontSize: 16, fontFamily: F.medium, lineHeight: 24 },
+  swipeHint: { fontSize: 13, fontFamily: F.medium, textAlign: 'center', marginTop: 4 },
+
+  /* ─ Celebration score ─ */
+  celebEmoji: { fontSize: 52, textAlign: 'center', marginBottom: 8 },
+  scorePill: {
+    borderRadius: 20, borderWidth: 1.5,
+    paddingHorizontal: 28, paddingVertical: 12, alignItems: 'center', marginBottom: 16,
+  },
+  scoreText:  { fontSize: 42, fontFamily: F.extrabold, lineHeight: 48 },
+  scoreLabel: { fontSize: 13, fontFamily: F.medium, marginTop: 2 },
+
+  scoreBarWrap:   { width: '100%', marginBottom: 20 },
+  scoreBarTrack:  { height: 8, borderRadius: 4, overflow: 'hidden' },
+  scoreBarFill:   { height: '100%', borderRadius: 4 },
+  scoreBarLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  scoreBarLabel:  { fontSize: 11, fontFamily: F.regular },
+
   confettiContainer: {
     position: 'absolute', alignItems: 'center', justifyContent: 'center',
     width: 200, height: 200,
   },
-  celebTitle: { fontSize: 36, fontFamily: F.extrabold, textAlign: 'center', marginBottom: 8 },
+  celebTitle: { fontSize: 30, fontFamily: F.extrabold, textAlign: 'center', marginBottom: 16 },
   celebSub:   { fontSize: 17, fontFamily: F.medium,    textAlign: 'center', marginBottom: 24 },
   learnedWordsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
   learnedPill: {
@@ -1662,27 +2150,102 @@ const styles = StyleSheet.create({
   planCheckItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   planCheckText: { fontSize: 16, fontFamily: F.medium },
 
-  notifButtons: { gap: 16, width: '100%', marginTop: 24, alignItems: 'center' },
   skipLinkText: { fontSize: 14, fontFamily: F.medium, marginTop: 4 },
 
-  signInLogo: { marginBottom: 24 },
-  signInLogoCircle: {
-    width: 72, height: 72, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#f4511e', shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25, shadowRadius: 18, elevation: 8,
+  /* ─ Notifications redesign ─ */
+  notifLayout: {
+    flex: 1, paddingHorizontal: 28, paddingTop: 24,
+    justifyContent: 'center',
   },
-  signInLogoEmoji: { fontSize: 36 },
-  signInButtons: { gap: 12, width: '100%', marginTop: 24, alignItems: 'center' },
+  notifIconWrap: { alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginBottom: 28 },
+  notifIconCircle: {
+    width: 80, height: 80, borderRadius: 24,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  notifPingOuter: {
+    position: 'absolute', width: 110, height: 110, borderRadius: 55, borderWidth: 1.5,
+  },
+  notifPingInner: {
+    position: 'absolute', width: 95, height: 95, borderRadius: 48, borderWidth: 1,
+  },
+  notifHeading: { fontSize: 32, fontFamily: F.extrabold, lineHeight: 40, letterSpacing: -0.5, marginBottom: 8 },
+  notifSub: { fontSize: 15, fontFamily: F.regular, lineHeight: 23, marginBottom: 24 },
+  notifPerksList: {
+    borderRadius: 18, borderWidth: 1, overflow: 'hidden', marginBottom: 28,
+  },
+  notifPerkRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 18, paddingVertical: 14, gap: 14,
+  },
+  notifPerkIcon: { fontSize: 20, width: 26, textAlign: 'center' },
+  notifPerkText: { fontSize: 14, fontFamily: F.medium, flex: 1, lineHeight: 20 },
+  notifCta: { gap: 14, alignItems: 'center' },
+  notifButtons: { gap: 16, width: '100%', marginTop: 24, alignItems: 'center' },
+
+  /* ─ SignIn redesign ─ */
+  signInLayout: {
+    flex: 1, paddingHorizontal: 28, paddingTop: 24,
+    justifyContent: 'center',
+  },
+  signInBrandRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 28 },
+  signInBrandName: { fontSize: 26, fontFamily: F.extrabold, letterSpacing: -0.5 },
+  signInLogoCircle: {
+    width: 52, height: 52, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#f4511e', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
+  },
+  signInLogoEmoji: { fontSize: 26 },
+  signInHeading: { fontSize: 32, fontFamily: F.extrabold, lineHeight: 40, letterSpacing: -0.5, marginBottom: 8 },
+  signInSub: { fontSize: 15, fontFamily: F.regular, lineHeight: 23, marginBottom: 20 },
+  signInBenefits: { gap: 10, marginBottom: 28 },
+  signInBenefitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  signInBenefitIcon: { fontSize: 18, width: 24, textAlign: 'center' },
+  signInBenefitText: { fontSize: 14, fontFamily: F.medium, flex: 1, lineHeight: 20 },
+  signInButtons: { gap: 12, width: '100%', alignItems: 'center' },
+  /* ─ Auth buttons (Google / Apple) ─ */
+  authBtn: {
+    flexDirection: 'row', alignItems: 'center',
+    width: '100%', borderRadius: 18,
+    paddingVertical: 16, paddingHorizontal: 20,
+    shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3,
+    minHeight: 58,
+  },
+  authBtnGoogle: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1, borderColor: '#e5e7eb',
+    shadowColor: '#000',
+  },
+  authBtnGoogleText: {
+    flex: 1, textAlign: 'center',
+    fontSize: 16, fontFamily: F.semibold, color: '#1a1a1a',
+    marginRight: 36, // balance against logo
+  },
+  googleLogoWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e5e7eb',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  googleLogoG: { fontSize: 20, fontFamily: F.extrabold, lineHeight: 24 },
+
+  authBtnApple: {
+    shadowColor: '#000',
+  },
+  authBtnAppleLogo: { fontSize: 22, lineHeight: 26, width: 36, textAlign: 'center' },
+  authBtnAppleText: {
+    flex: 1, textAlign: 'center',
+    fontSize: 16, fontFamily: F.semibold,
+    marginRight: 36, // balance against logo
+  },
+  authBtnSpacer: { width: 36 }, // keeps text truly centred
+
+  /* kept for paywall / other uses */
   socialBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, borderRadius: 14, borderWidth: 1,
     paddingVertical: 15, paddingHorizontal: 20, width: '100%',
   },
-  googleG: {
-    fontSize: 18, fontFamily: F.bold,
-    color: '#4285F4', width: 22, textAlign: 'center',
-  },
+  googleG: { fontSize: 18, fontFamily: F.bold, color: '#4285F4', width: 22, textAlign: 'center' },
   appleLogo: { fontSize: 20, lineHeight: 22, width: 22, textAlign: 'center' },
   socialBtnText: { fontSize: 16, fontFamily: F.semibold },
   termsText: { fontSize: 12, fontFamily: F.regular, textAlign: 'center', lineHeight: 18, marginTop: 20 },
@@ -1720,6 +2283,19 @@ const styles = StyleSheet.create({
   saveBadgeText: { fontSize: 11, fontFamily: F.bold },
   planPrice:    { fontSize: 17, fontFamily: F.bold },
   trialText: { textAlign: 'center', fontSize: 12, fontFamily: F.regular, marginTop: 12 },
+
+  freeTierDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 16 },
+  freeTierLine:    { flex: 1, height: 1 },
+  freeTierOr:      { fontSize: 12, fontFamily: F.medium },
+  freeTierBtn: {
+    borderRadius: 16, borderWidth: 1,
+    paddingVertical: 14, paddingHorizontal: 20,
+    alignItems: 'center', gap: 3,
+    marginBottom: 4,
+  },
+  freeTierBtnText: { fontSize: 15, fontFamily: F.semibold },
+  freeTierBtnSub:  { fontSize: 12, fontFamily: F.regular },
+
   paywallFooter: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 16 },
   footerLink: { fontSize: 12, fontFamily: F.regular },
   footerDot:  { fontSize: 12 },

@@ -37,6 +37,13 @@ const en: Translations = {
   upgradeTitle:         'Upgrade to Pro ✦',
   upgradeSub:           'Unlimited sessions · Full vocab library',
   proActive:            '✦ Pro — Active',
+  sectionSupport:        'SUPPORT',
+  settingsRateApp:       'Rate Vocally',
+  settingsShareApp:      'Share App',
+  settingsGetHelp:       'Get Help',
+  sectionLegal:          'LEGAL',
+  settingsPrivacyPolicy: 'Privacy Policy',
+  settingsTermsOfService:'Terms of Service',
 
   quizTitle:         'Practice',
   choicePrompt:      'Which word means…',

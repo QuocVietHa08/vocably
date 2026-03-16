@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, Switch, Platform,
+  Linking, Share, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Star, Share2, HelpCircle, Shield, FileText, User } from 'lucide-react-native';
+import Constants from 'expo-constants';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 // import { useAuth } from '@/src/context/AuthContext';
@@ -13,6 +15,15 @@ import { useT } from '@/src/i18n/useT';
 import { NATIVE_LANGUAGES } from './welcome';
 // import { usePurchases } from '@/src/context/PurchasesContext';
 import { VOICE_OPTIONS, ttsSpeak, type OpenAIVoice } from '@/src/lib/openaiTts';
+
+/* ─── Deep-link URLs (fill in before App Store submission) ─────── */
+const APP_STORE_URL  = 'https://apps.apple.com/app/id000000000';    // TODO: replace with real App Store ID
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.vocally.app'; // TODO
+const SUPPORT_EMAIL  = 'mailto:support@vocally.app';
+const PRIVACY_URL    = 'https://vocally.app/privacy';
+const TERMS_URL      = 'https://vocally.app/terms';
+
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 /* ─── Section & Row helpers ────────────────────────────────────── */
 
@@ -31,9 +42,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Row({
-  label, value, onPress, last = false, danger = false,
+  label, value, onPress, last = false, danger = false, icon, chevron = false,
 }: {
   label: string; value?: string; onPress?: () => void; last?: boolean; danger?: boolean;
+  icon?: React.ReactNode; chevron?: boolean;
 }) {
   const t = useTheme();
   return (
@@ -45,10 +57,12 @@ function Row({
         pressed && onPress && { backgroundColor: t.subtle },
       ]}
     >
+      {icon && <View style={styles.rowIcon}>{icon}</View>}
       <Text style={[styles.rowLabel, { color: danger ? '#ef4444' : t.fg }]}>{label}</Text>
       {value !== undefined && (
         <Text style={[styles.rowValue, { color: t.muted }]}>{value}</Text>
       )}
+      {chevron && <ChevronRight size={16} color={t.muted} strokeWidth={2} />}
     </Pressable>
   );
 }
@@ -234,10 +248,39 @@ export default function SettingsScreen() {
   // const { isPro }                                = usePurchases(); // TODO: re-enable when payment is configured
   const isPro = false;
 
+  // const userEmail = user?.email ?? null; // TODO: re-enable when auth is configured
+  const userEmail: string | null = null;
+
   async function handleSignOut() {
     // TODO: re-enable when auth is configured
     // await signOut();
     // router.replace('/auth');
+  }
+
+  async function handleRateApp() {
+    const url = Platform.OS === 'ios' ? APP_STORE_URL : PLAY_STORE_URL;
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      Linking.openURL(url);
+    } else {
+      Alert.alert('Rate Vocally', 'Search for "Vocally" in the App Store to leave a review!');
+    }
+  }
+
+  async function handleShareApp() {
+    try {
+      await Share.share({
+        message: 'I\'ve been using Vocally to prepare for IELTS — it\'s great for building vocabulary! 🎓\n\nhttps://vocally.app',
+        url: 'https://vocally.app',
+        title: 'Vocally — IELTS Vocabulary',
+      });
+    } catch (_) {}
+  }
+
+  function handleGetHelp() {
+    Linking.openURL(SUPPORT_EMAIL).catch(() => {
+      Alert.alert('Get Help', 'Email us at support@vocally.app');
+    });
   }
 
   return (
@@ -274,10 +317,14 @@ export default function SettingsScreen() {
           </View>
         )}
 
-        {/* Profile */}
+        {/* Account */}
         <Section title={T.sectionAccount}>
-          {/* TODO: show user?.email when auth is re-enabled */}
-          <Row label={'Guest'} last />
+          <Row
+            label={userEmail ?? 'Guest Account'}
+            value={isPro ? '✦ Pro' : 'Free'}
+            icon={<User size={16} color={t.muted} strokeWidth={2} />}
+            last
+          />
         </Section>
 
         {/* Appearance */}
@@ -310,12 +357,58 @@ export default function SettingsScreen() {
           />
         </Section>
 
+        {/* Support */}
+        <Section title={T.sectionSupport}>
+          <Row
+            label={T.settingsRateApp}
+            onPress={handleRateApp}
+            icon={<Star size={16} color="#f59e0b" strokeWidth={2} />}
+            chevron
+          />
+          <Row
+            label={T.settingsShareApp}
+            onPress={handleShareApp}
+            icon={<Share2 size={16} color={t.muted} strokeWidth={2} />}
+            chevron
+          />
+          <Row
+            label={T.settingsGetHelp}
+            onPress={handleGetHelp}
+            icon={<HelpCircle size={16} color={t.muted} strokeWidth={2} />}
+            chevron
+            last
+          />
+        </Section>
+
+        {/* Legal */}
+        <Section title={T.sectionLegal}>
+          <Row
+            label={T.settingsPrivacyPolicy}
+            onPress={() => Linking.openURL(PRIVACY_URL)}
+            icon={<Shield size={16} color={t.muted} strokeWidth={2} />}
+            chevron
+          />
+          <Row
+            label={T.settingsTermsOfService}
+            onPress={() => Linking.openURL(TERMS_URL)}
+            icon={<FileText size={16} color={t.muted} strokeWidth={2} />}
+            chevron
+            last
+          />
+        </Section>
+
         {/* Sign out */}
         <Section title="">
           <Row label={T.signOut} onPress={handleSignOut} danger last />
         </Section>
 
-        <Text style={[styles.version, { color: t.muted }]}>Vocally · v1.0.0</Text>
+        {/* Version */}
+        <View style={styles.versionRow}>
+          <Text style={[styles.versionApp, { color: t.muted }]}>Vocally</Text>
+          <View style={[styles.versionBadge, { backgroundColor: t.subtle, borderColor: t.border }]}>
+            <Text style={[styles.versionBadgeText, { color: t.muted }]}>v{APP_VERSION}</Text>
+          </View>
+        </View>
 
       </ScrollView>
     </SafeAreaView>
@@ -348,10 +441,11 @@ const styles = StyleSheet.create({
 
   row: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14, minHeight: 52,
+    paddingHorizontal: 16, paddingVertical: 14, minHeight: 52, gap: 10,
   },
+  rowIcon: { width: 24, alignItems: 'center' },
   rowLabel: { fontSize: 15, fontFamily: F.medium, flex: 1 },
-  rowValue: { fontSize: 14, fontFamily: F.regular },
+  rowValue: { fontSize: 13, fontFamily: F.medium },
 
   themeOptions: { flexDirection: 'row', gap: 8 },
   themeChip: {
@@ -384,7 +478,13 @@ const styles = StyleSheet.create({
   voiceName: { fontSize: 13, fontFamily: F.semibold },
   voiceDesc: { fontSize: 10, fontFamily: F.regular },
 
-  version: { textAlign: 'center', fontSize: 12, fontFamily: F.regular, marginTop: 8, marginBottom: 20 },
+  versionRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, marginTop: 8, marginBottom: 32,
+  },
+  versionApp:       { fontSize: 13, fontFamily: F.semibold },
+  versionBadge:     { borderRadius: 20, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 3 },
+  versionBadgeText: { fontSize: 11, fontFamily: F.medium },
 
   proBanner: {
     borderRadius: 16, padding: 18, marginBottom: 24,

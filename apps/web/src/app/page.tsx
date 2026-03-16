@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { allCards, type Flashcard } from "@/data/flashcards";
 import { FlashCard } from "@/components/flashcard/FlashCard";
 import { ResultsScreen } from "@/components/flashcard/ResultsScreen";
+import { supabase } from "@/lib/supabase";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -24,8 +25,14 @@ export default function Home() {
   const [learning, setLearning] = useState(0);
   const [done, setDone]         = useState(false);
 
+  // Track session start for Supabase
+  const sessionStartRef = useRef<Date | null>(null);
+
   // Shuffle after mount — Math.random() can't run during SSR
-  useEffect(() => { setCards(shuffle(allCards)); }, []);
+  useEffect(() => {
+    setCards(shuffle(allCards));
+    sessionStartRef.current = new Date();
+  }, []);
 
   const currentCard = cards[index];
   const total       = cards.length;
@@ -47,14 +54,45 @@ export default function Home() {
     return () => window.removeEventListener("keydown", fn);
   }, [advance, done]);
 
+  // ── Save practice session to Supabase when done ──────────────────────
+  useEffect(() => {
+    if (!done) return;
+
+    async function savePracticeSession() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return; // not logged in — skip silently
+
+      const endedAt  = new Date();
+      const score    = total > 0 ? Math.round((known / total) * 100) : 0;
+
+      // Insert session record
+      await supabase.from("practice_sessions").insert({
+        user_id:       user.id,
+        started_at:    sessionStartRef.current?.toISOString() ?? endedAt.toISOString(),
+        ended_at:      endedAt.toISOString(),
+        cards_studied: total,
+        known_count:   known,
+        unknown_count: learning,
+        score,
+      });
+
+      // Update streak via Supabase function
+      await supabase.rpc("update_streak", { p_user_id: user.id });
+    }
+
+    savePracticeSession();
+  }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const restart = () => {
     setCards(shuffle(allCards));
     setIndex(0); setKnown(0); setLearning(0); setDone(false);
+    sessionStartRef.current = new Date();
   };
 
   const retryMissed = (missed: Flashcard[]) => {
     setCards(shuffle(missed));
     setIndex(0); setKnown(0); setLearning(0); setDone(false);
+    sessionStartRef.current = new Date();
   };
 
   return (

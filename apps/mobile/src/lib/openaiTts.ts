@@ -15,10 +15,37 @@ export const VOICE_OPTIONS: { value: OpenAIVoice; label: string; description: st
   { value: 'shimmer', label: 'Shimmer', description: 'Clear & gentle' },
 ];
 
-// Simple in-memory cache to avoid re-fetching the same text
-const cache = new Map<string, string>(); // key → file URI
+/* ─── Cache ────────────────────────────────────────────────────────
+ * Files are stored under expo's cacheDirectory with a deterministic
+ * name derived from the cache key.  Using a fixed name means the file
+ * survives JS reloads / fast-refresh — the in-memory Map is rebuilt
+ * lazily by checking whether the file already exists on disk.
+ * ─────────────────────────────────────────────────────────────── */
+
+/** Simple djb2 hash → hex string (no crypto needed for cache keys) */
+function hashKey(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+  return (h >>> 0).toString(16);
+}
+
+function cacheKeyFor(text: string, voice: OpenAIVoice, speed: number) {
+  return `${voice}:${speed}:${text}`;
+}
+
+function fileUriFor(cacheKey: string): string {
+  return `${FileSystem.cacheDirectory}tts_${hashKey(cacheKey)}.mp3`;
+}
+
+// In-memory set of keys that are confirmed to exist on disk
+const diskCache = new Set<string>();
+
+// Keys that are currently being fetched — avoid duplicate requests
+const inflight = new Map<string, Promise<string | null>>();
 
 let currentSound: Audio.Sound | null = null;
+
+/* ─── Stop ──────────────────────────────────────────────────────── */
 
 /** Stop any currently playing TTS audio */
 export async function ttsStop() {
@@ -31,27 +58,40 @@ export async function ttsStop() {
   }
 }
 
+/* ─── Core fetch + cache ────────────────────────────────────────── */
+
 /**
- * Speak text using OpenAI's TTS API.
- * Falls back silently if the API call fails.
+ * Ensure the audio for `text` is on disk and return its file URI.
+ * Returns null if the API key is missing or the request fails.
+ * Multiple concurrent calls for the same key share one in-flight request.
  */
-export async function ttsSpeak(
+async function ensureCached(
   text: string,
-  voice: OpenAIVoice = 'nova',
-  speed: number = 1.0,
-) {
-  if (!text.trim() || !API_KEY) return;
+  voice: OpenAIVoice,
+  speed: number,
+): Promise<string | null> {
+  if (!text.trim() || !API_KEY) return null;
 
-  await ttsStop();
+  const key     = cacheKeyFor(text, voice, speed);
+  const fileUri = fileUriFor(key);
 
-  const cacheKey = `${voice}:${speed}:${text}`;
+  // 1. In-memory hit
+  if (diskCache.has(key)) return fileUri;
 
-  try {
-    let fileUri = cache.get(cacheKey);
+  // 2. File already on disk from a previous session
+  const info = await FileSystem.getInfoAsync(fileUri);
+  if (info.exists) {
+    diskCache.add(key);
+    return fileUri;
+  }
 
-    if (!fileUri) {
-      // Call OpenAI TTS API
-      const res = await fetch(TTS_URL, {
+  // 3. Already fetching — share the promise
+  if (inflight.has(key)) return inflight.get(key)!;
+
+  // 4. Fetch from OpenAI and write directly to disk via downloadAsync
+  const promise = (async (): Promise<string | null> => {
+    try {
+      const result = await FileSystem.downloadAsync(TTS_URL, fileUri, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${API_KEY}`,
@@ -66,43 +106,73 @@ export async function ttsSpeak(
         }),
       });
 
-      if (!res.ok) {
-        console.warn('[TTS] API error:', res.status);
-        return;
+      if (result.status !== 200) {
+        console.warn('[TTS] API error:', result.status);
+        // Remove any partial file
+        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+        return null;
       }
 
-      // Read response as base64 and save to cache file
-      const blob = await res.blob();
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const dataUrl = reader.result as string;
-          resolve(dataUrl.split(',')[1]);
-        };
-        reader.readAsDataURL(blob);
-      });
-
-      fileUri = `${FileSystem.cacheDirectory}tts_${Date.now()}.mp3`;
-      await FileSystem.writeAsStringAsync(fileUri, base64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // Keep cache bounded (max 50 entries)
-      if (cache.size > 50) {
-        const firstKey = cache.keys().next().value;
-        if (firstKey) cache.delete(firstKey);
-      }
-      cache.set(cacheKey, fileUri);
+      diskCache.add(key);
+      return fileUri;
+    } catch (e) {
+      console.warn('[TTS] Fetch error:', e);
+      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      return null;
+    } finally {
+      inflight.delete(key);
     }
+  })();
 
-    // Play the audio
+  inflight.set(key, promise);
+  return promise;
+}
+
+/* ─── Public API ────────────────────────────────────────────────── */
+
+/**
+ * Pre-fetch audio for a list of words in the background.
+ * Call this as soon as a card deck is known so audio is ready before
+ * the user taps the speaker button.
+ *
+ * @example
+ *   useEffect(() => { ttsPrefetch(cards.map(c => c.word), ttsVoice); }, []);
+ */
+export function ttsPrefetch(
+  words: string[],
+  voice: OpenAIVoice = 'nova',
+  speed: number = 0.85,
+): void {
+  for (const word of words) {
+    // Fire and forget — errors are swallowed inside ensureCached
+    void ensureCached(word, voice, speed);
+  }
+}
+
+/**
+ * Speak text using OpenAI's TTS API.
+ * If the audio is already cached the playback starts immediately.
+ * Falls back silently if the API call fails.
+ */
+export async function ttsSpeak(
+  text: string,
+  voice: OpenAIVoice = 'nova',
+  speed: number = 1.0,
+) {
+  if (!text.trim() || !API_KEY) return;
+
+  await ttsStop();
+
+  try {
+    const fileUri = await ensureCached(text, voice, speed);
+    if (!fileUri) return;
+
     const { sound } = await Audio.Sound.createAsync(
       { uri: fileUri },
       { shouldPlay: true },
     );
     currentSound = sound;
 
-    // Clean up when done
     sound.setOnPlaybackStatusUpdate((status) => {
       if (status.isLoaded && status.didJustFinish) {
         sound.unloadAsync();
@@ -110,6 +180,6 @@ export async function ttsSpeak(
       }
     });
   } catch (e) {
-    console.warn('[TTS] Error:', e);
+    console.warn('[TTS] Playback error:', e);
   }
 }

@@ -47,6 +47,13 @@ export interface Translations {
   upgradeTitle:          string;
   upgradeSub:            string;
   proActive:             string;
+  sectionSupport:        string;
+  settingsRateApp:       string;
+  settingsShareApp:      string;
+  settingsGetHelp:       string;
+  sectionLegal:          string;
+  settingsPrivacyPolicy: string;
+  settingsTermsOfService:string;
 
   /* ── Quiz ────────────────────────────────────────────── */
   quizTitle:            string;

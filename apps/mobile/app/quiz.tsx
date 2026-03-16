@@ -31,7 +31,7 @@ import { useT, type Translations } from '@/src/i18n/useT';
 import { allCards, type Flashcard } from '@/src/data/flashcards';
 import { useLearnedWords } from '@/src/hooks/useLearnedWords';
 import { useSettings } from '@/src/context/SettingsContext';
-import { ttsSpeak, ttsStop } from '@/src/lib/openaiTts';
+import { ttsSpeak, ttsStop, ttsPrefetch } from '@/src/lib/openaiTts';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const MAX_TYPING_ATTEMPTS = 3;
@@ -780,6 +780,7 @@ export default function QuizScreen() {
   const { learnedIds, loaded } = useLearnedWords();
 
   const allWordPool = useMemo(() => allCards.map((c) => c.word), []);
+  const { ttsVoice: prefetchVoice } = useSettings();
 
   const deck = useMemo((): QuizItem[] => {
     if (!loaded) return [];
@@ -787,6 +788,13 @@ export default function QuizScreen() {
     const base    = shuffle(learned.length >= 5 ? learned : allCards);
     return buildQuizDeck(base, allWordPool);
   }, [loaded, learnedIds, allWordPool]);
+
+  // Pre-warm TTS cache for every word in the deck as soon as it's ready
+  useEffect(() => {
+    if (deck.length > 0) {
+      ttsPrefetch(deck.map((item) => item.card.word), prefetchVoice, 0.85);
+    }
+  }, [deck, prefetchVoice]);
 
   const [index,      setIndex]      = useState(0);
   const [score,      setScore]      = useState(0);

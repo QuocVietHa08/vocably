@@ -21,8 +21,10 @@ import { SettingsProvider } from '@/src/context/SettingsContext';
 // import { PurchasesProvider } from '@/src/context/PurchasesContext';
 import { WELCOME_SEEN_KEY } from './welcome';
 
-// Keep the splash screen visible while fonts + auth load
-SplashScreen.preventAutoHideAsync();
+// Keep the splash screen visible while fonts + auth load.
+// Wrapped in try/catch because Expo Go doesn't register a native splash for the
+// app's view controller — this throws in Expo Go but works correctly in dev/prod builds.
+try { SplashScreen.preventAutoHideAsync(); } catch { /* Expo Go — no-op */ }
 
 /* ─── Navigation guard ─────────────────────────────────────────── */
 
@@ -34,30 +36,21 @@ function NavigationGuard() {
 
   // Load welcome flag
   useEffect(() => {
-    // TODO: Remove this line after testing onboarding
-    AsyncStorage.removeItem(WELCOME_SEEN_KEY);
+    // TODO (onboarding): swap this back to AsyncStorage.getItem when onboarding is ready to gate access
+    // AsyncStorage.getItem(WELCOME_SEEN_KEY).then((val) => {
+    //   setWelcomeSeen(val === 'true');
+    // });
 
-    AsyncStorage.getItem(WELCOME_SEEN_KEY).then((val) => {
-      setWelcomeSeen(val === 'true');
-    });
+    // Temporarily skip onboarding — go straight to the main app
+    setWelcomeSeen(true);
   }, []);
 
   // Redirect based on state
   useEffect(() => {
-    // TODO: re-enable auth when Supabase is configured
-    // if (loading || welcomeSeen === null) return;
     if (welcomeSeen === null) return;
 
-    const inAuthGroup = segments[0] === 'auth' || segments[0] === 'welcome';
-
-    if (!welcomeSeen) {
-      router.replace('/welcome');
-    }
-    // else if (!user && !inAuthGroup) {
-    //   router.replace('/auth');
-    // } else if (user && inAuthGroup) {
-    //   router.replace('/');
-    // }
+    // TODO (onboarding): restore the welcome redirect when onboarding is ready to gate access
+    // if (!welcomeSeen) router.replace('/welcome');
   }, [welcomeSeen, segments]);
 
   return null;
@@ -75,7 +68,9 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
+    if (fontsLoaded) {
+      SplashScreen.hideAsync().catch(() => { /* Expo Go — no native splash registered */ });
+    }
   }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
