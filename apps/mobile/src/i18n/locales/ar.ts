@@ -15,6 +15,10 @@ const ar: Translations = {
   grammarBtn:    'القواعد',
   emptyFavText:  'لا توجد كلمات محفوظة بعد',
   emptyFavHint:  'اضغط على ♡ في أي بطاقة للحفظ',
+  cardKnow:  'أعرف',
+  cardAgain: 'مجدداً',
+  cardFlip:  'اقلب',
+
   swipeHint:     '← مجدداً  ·  اضغط للقلب  ·  أعرفها →',
   repeatOn:      'التكرار مفعّل',
 

@@ -15,6 +15,10 @@ const id: Translations = {
   grammarBtn:    'Tata Bahasa',
   emptyFavText:  'Belum ada kata yang disimpan',
   emptyFavHint:  'Ketuk ♡ pada kartu untuk menyimpan',
+  cardKnow:  'Tahu',
+  cardAgain: 'Lagi',
+  cardFlip:  'Balik',
+
   swipeHint:     '← ulangi  ·  ketuk untuk balik  ·  tahu →',
   repeatOn:      'ulang aktif',
 

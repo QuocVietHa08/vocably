@@ -15,6 +15,10 @@ const es: Translations = {
   grammarBtn:    'Gramática',
   emptyFavText:  'Sin palabras guardadas',
   emptyFavHint:  'Toca el ♡ en cualquier tarjeta para guardar',
+  cardKnow:  'Lo sé',
+  cardAgain: 'Repetir',
+  cardFlip:  'Voltear',
+
   swipeHint:     '← no sé  ·  toca para girar  ·  lo sé →',
   repeatOn:      'repetir activado',
 

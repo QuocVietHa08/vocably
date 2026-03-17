@@ -1,22 +1,84 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInRight, FadeOutLeft, FadeIn } from 'react-native-reanimated';
+import Animated, {
+  FadeInRight, FadeOutLeft, FadeIn,
+  useSharedValue, useAnimatedStyle, withSequence, withTiming,
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { ttsStop } from '@/src/lib/openaiTts';
 import { allCards, type Flashcard } from '@/src/data/flashcards';
-import { FlashCard } from '@/src/components/flashcard/FlashCard';
+import { FlashCard, type FlashCardRef } from '@/src/components/flashcard/FlashCard';
 import { ResultsScreen } from '@/src/components/flashcard/ResultsScreen';
 import { useFavorites } from '@/src/hooks/useFavorites';
 import { useLearnedWords } from '@/src/hooks/useLearnedWords';
 import { useUsageLimits, NEW_WORDS_LIMIT } from '@/src/hooks/useUsageLimits';
 import { useSettings } from '@/src/context/SettingsContext';
 import { useT } from '@/src/i18n/useT';
-import { Mic, Settings2, BookOpen, RefreshCw, Dumbbell, ChevronRight } from 'lucide-react-native';
+import { Mic, Settings2, BookOpen, RefreshCw, Dumbbell, ChevronRight, RotateCcw, X, Check } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
+
+/* ─── Animated action button ──────────────────────────────────── */
+
+type ActionVariant = 'know' | 'dontknow' | 'flip';
+
+const KNOW_COLOR     = '#22c55e';
+const DONTKNOW_COLOR = '#ef4444';
+const FLIP_COLOR     = '#3b82f6';
+
+// Semi-transparent tinted borders (~25% opacity in hex)
+const KNOW_BORDER     = '#22c55e40';
+const DONTKNOW_BORDER = '#ef444440';
+const FLIP_BORDER     = '#3b82f640';
+
+function ActionButton({
+  variant,
+  onPress,
+}: {
+  variant: ActionVariant;
+  onPress: () => void;
+}) {
+  const t     = useTheme();
+  const T     = useT();
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  function handlePress() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    scale.value = withSequence(
+      withTiming(0.95, { duration: 70 }),
+      withTiming(1.0,  { duration: 110 }),
+    );
+    onPress();
+  }
+
+  const cfg =
+    variant === 'know'
+      ? { icon: <Check    size={20} color={KNOW_COLOR}     strokeWidth={2.2} />, label: T.cardKnow,  color: KNOW_COLOR,     border: KNOW_BORDER }
+      : variant === 'dontknow'
+      ? { icon: <X        size={20} color={DONTKNOW_COLOR} strokeWidth={2.2} />, label: T.cardAgain, color: DONTKNOW_COLOR, border: DONTKNOW_BORDER }
+      : { icon: <RotateCcw size={19} color={FLIP_COLOR}     strokeWidth={2}   />, label: T.cardFlip,  color: FLIP_COLOR,     border: FLIP_BORDER };
+
+  return (
+    <Pressable onPress={handlePress} hitSlop={10} style={{ flex: 1 }}>
+      <Animated.View style={[
+        styles.actionBtn,
+        { backgroundColor: t.surface, borderColor: cfg.border },
+        animStyle,
+      ]}>
+        {cfg.icon}
+        <Text style={[styles.actionBtnText, { color: cfg.color }]}>{cfg.label}</Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -39,6 +101,7 @@ export default function HomeScreen() {
   const { favoriteIds, isFavorite, toggleFavorite, loaded } = useFavorites();
   const { markLearned, isLearned } = useLearnedWords();
   const { canLearnNewWord, incrementNewWords, newWordsToday, isPro } = useUsageLimits();
+    const flashCardRef = useRef<FlashCardRef>(null);
 
   const [filterMode,  setFilterMode]  = useState<FilterMode>('all');
   const [autoRepeat,  setAutoRepeat]  = useState(false);
@@ -240,6 +303,7 @@ export default function HomeScreen() {
               exiting={FadeOutLeft.duration(180)}
             >
               <FlashCard
+                ref={flashCardRef}
                 card={currentCard}
                 onKnow={() => advance('know')}
                 onDontKnow={() => advance('dontknow')}
@@ -250,20 +314,18 @@ export default function HomeScreen() {
           ) : null}
         </View>
 
-        {/* Swipe hint + repeat badge */}
-        {!done && index === 0 && !(filterMode === 'favorites' && favCount === 0) && (
-          <View style={styles.swipeHint}>
-            <Text style={[styles.swipeHintText, { color: t.muted }]}>{T.swipeHint}</Text>
+        {/* ── Action button bar ── */}
+        {!done && currentCard && !(filterMode === 'favorites' && favCount === 0) && (
+          <View style={styles.actionBar}>
+            <ActionButton variant="dontknow" onPress={() => flashCardRef.current?.triggerDontKnow()} />
+            <ActionButton variant="flip"     onPress={() => flashCardRef.current?.flipCard()} />
+            <ActionButton variant="know"     onPress={() => flashCardRef.current?.triggerKnow()} />
           </View>
         )}
 
-        {/* Auto-repeat notice */}
-        {autoRepeat && !done && (
-          <View style={styles.repeatBadge}>
-            <RefreshCw size={10} color={t.accent} strokeWidth={2.5} />
-            <Text style={[styles.repeatBadgeText, { color: t.accent }]}>{T.repeatOn}</Text>
+          <View style={styles.swipeHint}>
+            <Text style={[styles.swipeHintText, { color: t.muted }]}>{T.swipeHint}</Text>
           </View>
-        )}
 
       </View>
     </SafeAreaView>
@@ -348,6 +410,28 @@ const styles = StyleSheet.create({
   emptyFavHint: { fontSize: 12, opacity: 0.7 },
 
   content: { flex: 1, justifyContent: 'center' },
+
+  /* Action button bar */
+  actionBar: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingBottom: 14,
+    paddingTop: 6,
+  },
+  actionBtn: {
+    width: '100%',
+    height: 58,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  actionBtnText: {
+    fontSize: 12,
+    fontFamily: F.semibold,
+    letterSpacing: 0.3,
+  },
 
   swipeHint: { paddingBottom: 24, alignItems: 'center' },
   swipeHintText: { fontSize: 12, opacity: 0.6 },

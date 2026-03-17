@@ -26,6 +26,9 @@ export interface Translations {
   emptyFavHint:   string;
   swipeHint:      string;
   repeatOn:       string;
+  cardKnow:       string;
+  cardAgain:      string;
+  cardFlip:       string;
 
   /* ── Settings ────────────────────────────────────────── */
   settingsTitle:         string;

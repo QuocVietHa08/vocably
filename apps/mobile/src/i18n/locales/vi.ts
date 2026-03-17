@@ -15,6 +15,10 @@ const vi: Translations = {
   grammarBtn:    'Ngữ pháp',
   emptyFavText:  'Chưa có từ nào được lưu',
   emptyFavHint:  'Nhấn ♡ trên thẻ để lưu từ',
+  cardKnow:  'Biết',
+  cardAgain: 'Lại',
+  cardFlip:  'Lật',
+
   swipeHint:     '← chưa biết  ·  nhấn để lật  ·  biết rồi →',
   repeatOn:      'lặp lại bật',
 

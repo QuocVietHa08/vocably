@@ -15,6 +15,10 @@ const ko: Translations = {
   grammarBtn:    '문법',
   emptyFavText:  '저장된 단어가 없습니다',
   emptyFavHint:  '카드의 ♡ 를 눌러 저장하세요',
+  cardKnow:  '알아요',
+  cardAgain: '다시',
+  cardFlip:  '뒤집기',
+
   swipeHint:     '← 다시  ·  탭하여 뒤집기  ·  알아요 →',
   repeatOn:      '반복 켜짐',
 

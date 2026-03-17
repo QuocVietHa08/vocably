@@ -15,6 +15,10 @@ const de: Translations = {
   grammarBtn:    'Grammatik',
   emptyFavText:  'Noch keine gespeicherten Wörter',
   emptyFavHint:  'Tippe auf ♡ auf einer Karte zum Speichern',
+  cardKnow:  'Kenne',
+  cardAgain: 'Nochmal',
+  cardFlip:  'Drehen',
+
   swipeHint:     '← nochmal  ·  tippen zum Umdrehen  ·  bekannt →',
   repeatOn:      'Wiederholung an',
 

@@ -15,6 +15,10 @@ const th: Translations = {
   grammarBtn:    'ไวยากรณ์',
   emptyFavText:  'ยังไม่มีคำที่บันทึก',
   emptyFavHint:  'แตะ ♡ บนการ์ดเพื่อบันทึก',
+  cardKnow:  'รู้แล้ว',
+  cardAgain: 'อีกครั้ง',
+  cardFlip:  'พลิก',
+
   swipeHint:     '← ยังไม่รู้  ·  แตะเพื่อพลิก  ·  รู้แล้ว →',
   repeatOn:      'เปิดการทำซ้ำ',
 

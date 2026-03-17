@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 // Use RNGH Pressable — it's gesture-system-aware and works correctly inside GestureDetector
 import { Gesture, GestureDetector, Pressable } from 'react-native-gesture-handler';
@@ -24,6 +24,12 @@ const CARD_H = 420;
 // Share card dimensions — rendered off-screen for clean share images
 const SHARE_W = 360;
 const SHARE_H = 480;
+
+export interface FlashCardRef {
+  triggerKnow:     () => void;
+  triggerDontKnow: () => void;
+  flipCard:        () => void;
+}
 
 interface FlashCardProps {
   card:              Flashcard;
@@ -371,13 +377,13 @@ function ShareButton({
 
 /* ─── FlashCard ────────────────────────────────────────────────── */
 
-export function FlashCard({
+export const FlashCard = forwardRef<FlashCardRef, FlashCardProps>(function FlashCard({
   card,
   onKnow,
   onDontKnow,
   isFavorite      = false,
   onToggleFavorite,
-}: FlashCardProps) {
+}: FlashCardProps, ref) {
   const t       = useTheme();
   const { ttsVoice } = useSettings();
   const [flipped, setFlipped] = useState(false);
@@ -491,6 +497,13 @@ export function FlashCard({
     flipProgress.value = withTiming(toFlipped ? 1 : 0, { duration: 360, easing: Easing.inOut(Easing.quad) });
     setFlipped(toFlipped);
   }, [flipped, flipProgress]);
+
+  // Expose imperative actions so the parent's button bar can trigger card animations
+  useImperativeHandle(ref, () => ({
+    triggerKnow:     () => flyOut('right'),
+    triggerDontKnow: () => flyOut('left'),
+    flipCard:        handleFlip,
+  }), [flyOut, handleFlip]);
 
   const diffColor  = card.difficulty === 'hard' ? '#ef4444' : card.difficulty === 'medium' ? '#f59e0b' : '#22c55e';
   const heartColor = isFavorite ? '#ef4444' : t.muted;
@@ -629,7 +642,7 @@ export function FlashCard({
       </GestureDetector>
     </>
   );
-}
+});
 
 /* ─── Styles ─────────────────────────────────────────────────── */
 

@@ -15,6 +15,10 @@ const pt: Translations = {
   grammarBtn:    'Gramática',
   emptyFavText:  'Nenhuma palavra salva ainda',
   emptyFavHint:  'Toque no ♡ em qualquer cartão para salvar',
+  cardKnow:  'Sei',
+  cardAgain: 'Repetir',
+  cardFlip:  'Virar',
+
   swipeHint:     '← rever  ·  toque para virar  ·  sei →',
   repeatOn:      'repetição ativada',
 

@@ -1,5 +1,5 @@
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const BACKEND_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 const TTS_URL = `${BACKEND_URL}/api/tts`;
@@ -91,24 +91,33 @@ async function ensureCached(
   // 4. Fetch from backend proxy and write directly to disk via downloadAsync
   const promise = (async (): Promise<string | null> => {
     try {
-      const result = await FileSystem.downloadAsync(TTS_URL, fileUri, {
+      const resp = await fetch(TTS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: text, voice, speed }),
       });
 
-      if (result.status !== 200) {
-        console.warn('[TTS] API error:', result.status);
-        // Remove any partial file
-        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      if (!resp.ok) {
+        console.warn('[TTS] API error:', resp.status);
         return null;
       }
+
+      // arrayBuffer → base64 without FileReader (fast, no bridge round-trip)
+      const buffer = await resp.arrayBuffer();
+      const bytes  = new Uint8Array(buffer);
+      let binary   = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const b64 = btoa(binary);
+
+      await FileSystem.writeAsStringAsync(fileUri, b64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
       diskCache.add(key);
       return fileUri;
     } catch (e) {
       console.warn('[TTS] Fetch error:', e);
-      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      await FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => {});
       return null;
     } finally {
       inflight.delete(key);

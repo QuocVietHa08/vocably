@@ -15,6 +15,10 @@ const ja: Translations = {
   grammarBtn:    '文法',
   emptyFavText:  '保存した単語はありません',
   emptyFavHint:  'カードの ♡ をタップして保存',
+  cardKnow:  'わかった',
+  cardAgain: 'もう一度',
+  cardFlip:  'めくる',
+
   swipeHint:     '← もう一度  ·  タップで反転  ·  覚えた →',
   repeatOn:      'リピートON',
 

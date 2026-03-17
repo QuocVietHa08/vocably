@@ -15,6 +15,10 @@ const zh: Translations = {
   grammarBtn:    '语法',
   emptyFavText:  '暂无收藏单词',
   emptyFavHint:  '点击卡片上的 ♡ 收藏单词',
+  cardKnow:  '认识',
+  cardAgain: '再来',
+  cardFlip:  '翻转',
+
   swipeHint:     '← 再学  ·  点击翻牌  ·  认识 →',
   repeatOn:      '循环开启',
 

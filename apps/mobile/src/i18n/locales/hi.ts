@@ -15,6 +15,10 @@ const hi: Translations = {
   grammarBtn:    'व्याकरण',
   emptyFavText:  'अभी तक कोई शब्द सहेजा नहीं',
   emptyFavHint:  'किसी भी कार्ड पर ♡ दबाएं',
+  cardKnow:  'जानता',
+  cardAgain: 'दोबारा',
+  cardFlip:  'पलटें',
+
   swipeHint:     '← दोबारा  ·  पलटने के लिए दबाएं  ·  जानता हूँ →',
   repeatOn:      'दोहराना चालू',
 

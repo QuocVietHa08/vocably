@@ -15,6 +15,10 @@ const en: Translations = {
   grammarBtn:    'Grammar',
   emptyFavText:  'No saved words yet',
   emptyFavHint:  'Tap the ♡ on any card to save it',
+  cardKnow:  'Know',
+  cardAgain: 'Again',
+  cardFlip:  'Flip',
+
   swipeHint:     '← again  ·  tap to flip  ·  know →',
   repeatOn:      'repeat on',
 
