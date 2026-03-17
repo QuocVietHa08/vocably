@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePurchases } from '@/src/context/PurchasesContext';
+import { useSettings } from '@/src/context/SettingsContext';
 
 const STORAGE_KEY = '@vocally/usageLimits';
 
@@ -33,6 +34,8 @@ async function loadData(): Promise<DailyData> {
 
 export function useUsageLimits() {
   const { isPro } = usePurchases();
+  const { dailyGoal } = useSettings();
+  const wordsLimit = isPro ? dailyGoal : NEW_WORDS_LIMIT;
   const [data, setData] = useState<DailyData>({
     date: getToday(),
     newWords: 0,
@@ -54,8 +57,8 @@ export function useUsageLimits() {
   }, []);
 
   const canLearnNewWord = useCallback(
-    () => isPro || data.newWords < NEW_WORDS_LIMIT,
-    [isPro, data.newWords],
+    () => data.newWords < wordsLimit,
+    [data.newWords, wordsLimit],
   );
 
   const canDoGrammarLesson = useCallback(
@@ -88,6 +91,7 @@ export function useUsageLimits() {
 
   return {
     newWordsToday: data.newWords,
+    wordsLimit,
     grammarLessonsToday: data.grammarLessons,
     quizSessionsToday: data.quizSessions,
     canLearnNewWord,

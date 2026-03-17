@@ -181,6 +181,7 @@ const hi: Translations = {
   onboardingPaywallTitle:     'अपनी पूरी\nक्षमता अनलॉक करें',
   onboardingPaywallSub:       'IELTS Speaking में सफलता के लिए सब कुछ',
   onboardingPaywallSkip:      'मुफ्त ट्रायल शुरू करें',
+  dailyWordGoal:              'Daily Word Goal',
   newWordsToday:              'आज के नए शब्द',
   paywallReasonWords:         'आपने आज 5 नए शब्द सीखे!',
   paywallReasonVoice:         'बोलने का अभ्यास Pro फीचर है',

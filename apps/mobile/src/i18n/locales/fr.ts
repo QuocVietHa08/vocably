@@ -181,6 +181,7 @@ const fr: Translations = {
   onboardingPaywallTitle:     'Libérez tout\nvotre potentiel',
   onboardingPaywallSub:       'Tout ce qu\'il faut pour réussir l\'IELTS Speaking',
   onboardingPaywallSkip:      'Essai gratuit',
+  dailyWordGoal:              'Daily Word Goal',
   newWordsToday:              'nouveaux mots aujourd\'hui',
   paywallReasonWords:         'Vous avez appris 5 nouveaux mots aujourd\'hui !',
   paywallReasonVoice:         'La pratique orale est une fonctionnalité Pro',

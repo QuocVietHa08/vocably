@@ -181,6 +181,7 @@ const ja: Translations = {
   onboardingPaywallTitle:     'あなたの可能性を\n最大限に引き出す',
   onboardingPaywallSub:       'IELTSスピーキング対策に必要なすべて',
   onboardingPaywallSkip:      '無料トライアルを開始',
+  dailyWordGoal:              'Daily Word Goal',
   newWordsToday:              '今日の新単語',
   paywallReasonWords:         '今日5つの新しい単語を学びました！',
   paywallReasonVoice:         'スピーキング練習はPro機能です',

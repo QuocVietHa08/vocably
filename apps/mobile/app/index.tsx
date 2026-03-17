@@ -15,7 +15,7 @@ import { FlashCard, type FlashCardRef } from '@/src/components/flashcard/FlashCa
 import { ResultsScreen } from '@/src/components/flashcard/ResultsScreen';
 import { useFavorites } from '@/src/hooks/useFavorites';
 import { useLearnedWords } from '@/src/hooks/useLearnedWords';
-import { useUsageLimits, NEW_WORDS_LIMIT } from '@/src/hooks/useUsageLimits';
+import { useUsageLimits } from '@/src/hooks/useUsageLimits';
 import { useSettings } from '@/src/context/SettingsContext';
 import { useT } from '@/src/i18n/useT';
 import { Mic, Settings2, BookOpen, RefreshCw, Dumbbell, ChevronRight, RotateCcw, X, Check } from 'lucide-react-native';
@@ -100,7 +100,7 @@ export default function HomeScreen() {
   const { nativeLanguage } = useSettings();
   const { favoriteIds, isFavorite, toggleFavorite, loaded } = useFavorites();
   const { markLearned, isLearned } = useLearnedWords();
-  const { canLearnNewWord, incrementNewWords, newWordsToday, isPro } = useUsageLimits();
+  const { canLearnNewWord, incrementNewWords, newWordsToday, wordsLimit, isPro } = useUsageLimits();
     const flashCardRef = useRef<FlashCardRef>(null);
 
   const [filterMode,  setFilterMode]  = useState<FilterMode>('all');
@@ -148,7 +148,7 @@ export default function HomeScreen() {
     } else {
       setIndex((i) => i + 1);
     }
-  }, [index, total, cards, markLearned]);
+  }, [index, total, cards, markLearned, isLearned, canLearnNewWord, incrementNewWords, router]);
 
   // Auto-repeat: when done, if there are missed cards and repeat is on → loop
   useEffect(() => {
@@ -221,9 +221,9 @@ export default function HomeScreen() {
           <View style={styles.counter}>
             <View style={[styles.dot, { backgroundColor: t.accent }]} />
             <Text style={[styles.counterNum, { color: t.fg }]}>
-              {done ? total : index + 1}
+              {newWordsToday}
             </Text>
-            <Text style={[styles.counterTotal, { color: t.muted }]}>/{total}</Text>
+            <Text style={[styles.counterTotal, { color: t.muted }]}>/{wordsLimit}</Text>
           </View>
 
           <Pressable
@@ -251,15 +251,6 @@ export default function HomeScreen() {
             <RefreshCw size={15} color={autoRepeat ? t.accent : t.muted} strokeWidth={2.5} />
           </Pressable>
         </View>
-
-        {/* ── Daily new words indicator ── */}
-        {!isPro && (
-          <View style={[styles.limitBadge, { backgroundColor: t.subtle, borderColor: t.border }]}>
-            <Text style={[styles.limitBadgeText, { color: t.muted }]}>
-              {newWordsToday}/{NEW_WORDS_LIMIT} {T.newWordsToday}
-            </Text>
-          </View>
-        )}
 
         {/* ── Practice entry strip ── */}
         <Pressable
@@ -442,11 +433,4 @@ const styles = StyleSheet.create({
   },
   repeatBadgeText: { fontSize: 10, fontFamily: F.semibold, letterSpacing: 0.4 },
 
-  /* Daily limit badge */
-  limitBadge: {
-    borderRadius: 12, borderWidth: 1,
-    paddingHorizontal: 12, paddingVertical: 6,
-    alignSelf: 'flex-start', marginBottom: 10,
-  },
-  limitBadgeText: { fontSize: 11, fontFamily: F.medium },
 });

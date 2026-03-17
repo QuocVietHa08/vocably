@@ -182,6 +182,7 @@ const en: Translations = {
   onboardingPaywallSub:       'Everything you need to ace IELTS Speaking',
   onboardingPaywallSkip:      'Start Free Trial',
 
+  dailyWordGoal:         'Daily Word Goal',
   newWordsToday:         'new words today',
   paywallReasonWords:    "You've learned 5 new words today!",
   paywallReasonVoice:    'Speaking practice is a Pro feature',

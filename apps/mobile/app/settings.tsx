@@ -237,6 +237,43 @@ function VoicePicker() {
   );
 }
 
+/* ─── Daily goal picker (Pro only) ────────────────────────────── */
+
+const DAILY_GOALS = [5, 10, 15, 20, 30, 50];
+
+function DailyGoalPicker() {
+  const t = useTheme();
+  const T = useT();
+  const { dailyGoal, setDailyGoal } = useSettings();
+
+  return (
+    <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
+      <Text style={[styles.rowLabel, { color: t.fg }]}>{T.dailyWordGoal}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+        <View style={styles.bandRow}>
+          {DAILY_GOALS.map((g) => {
+            const active = dailyGoal === g;
+            return (
+              <Pressable
+                key={g}
+                onPress={() => setDailyGoal(g)}
+                style={[
+                  styles.bandChip,
+                  { borderColor: active ? t.accent : t.border, backgroundColor: active ? t.accent : t.subtle },
+                ]}
+              >
+                <Text style={[styles.bandChipText, { color: active ? '#fff' : t.muted }]}>
+                  {g}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
 /* ─── Screen ──────────────────────────────────────────────────── */
 
 export default function SettingsScreen() {
@@ -345,6 +382,7 @@ export default function SettingsScreen() {
         {/* Study */}
         <Section title={T.sectionStudy}>
           <BandPicker />
+          {isPro && <DailyGoalPicker />}
         </Section>
 
         {/* Notifications */}

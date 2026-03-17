@@ -181,6 +181,7 @@ const de: Translations = {
   onboardingPaywallTitle:     'Entfalte dein\nvolles Potenzial',
   onboardingPaywallSub:       'Alles für den IELTS-Speaking-Erfolg',
   onboardingPaywallSkip:      'Kostenlos testen',
+  dailyWordGoal:              'Daily Word Goal',
   newWordsToday:              'neue Wörter heute',
   paywallReasonWords:         'Du hast heute 5 neue Wörter gelernt!',
   paywallReasonVoice:         'Sprechübungen sind eine Pro-Funktion',

@@ -795,8 +795,8 @@ export default function QuizScreen() {
 
   const deck = useMemo((): QuizItem[] => {
     if (!loaded) return [];
-    const learned = allCards.filter((c) => learnedIds.has(c.id));
-    const base    = shuffle(learned.length >= 5 ? learned : allCards);
+    const notLearned = allCards.filter((c) => !learnedIds.has(c.id));
+    const base       = shuffle(notLearned.length >= 5 ? notLearned : allCards);
     return buildQuizDeck(base, allWordPool);
   }, [loaded, learnedIds, allWordPool]);
 
@@ -860,7 +860,7 @@ export default function QuizScreen() {
     cardOpacity.value = 1;
   }, [cardOpacity]);
 
-  const useFallback = loaded && learnedIds.size < 5;
+  const useFallback = loaded && (allCards.length - learnedIds.size) < 5;
   const item        = deck[index];
   const total       = deck.length;
 

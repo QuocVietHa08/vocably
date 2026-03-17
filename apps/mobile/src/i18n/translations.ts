@@ -202,6 +202,7 @@ export interface Translations {
   onboardingPaywallSkip:      string;
 
   /* ── Usage limits ────────────────────────────────────────────── */
+  dailyWordGoal:         string;
   newWordsToday:         string;
   paywallReasonWords:    string;
   paywallReasonVoice:    string;
