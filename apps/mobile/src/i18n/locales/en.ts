@@ -177,6 +177,12 @@ const en: Translations = {
   onboardingPaywallTitle:     'Unlock Your\nFull Potential',
   onboardingPaywallSub:       'Everything you need to ace IELTS Speaking',
   onboardingPaywallSkip:      'Start Free Trial',
+
+  newWordsToday:         'new words today',
+  paywallReasonWords:    "You've learned 5 new words today!",
+  paywallReasonVoice:    'Speaking practice is a Pro feature',
+  paywallReasonGrammar:  'Daily grammar lesson limit reached',
+  paywallReasonQuiz:     'Daily quiz limit reached',
 };
 
 export default en;

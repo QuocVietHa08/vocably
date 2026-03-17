@@ -30,6 +30,7 @@ import { F } from '@/src/theme/fonts';
 import { useT, type Translations } from '@/src/i18n/useT';
 import { allCards, type Flashcard } from '@/src/data/flashcards';
 import { useLearnedWords } from '@/src/hooks/useLearnedWords';
+import { useUsageLimits } from '@/src/hooks/useUsageLimits';
 import { useSettings } from '@/src/context/SettingsContext';
 import { ttsSpeak, ttsStop, ttsPrefetch } from '@/src/lib/openaiTts';
 
@@ -778,6 +779,17 @@ export default function QuizScreen() {
   const T                      = useT();
   const router                 = useRouter();
   const { learnedIds, loaded } = useLearnedWords();
+  const { canDoQuiz, incrementQuizSessions, loaded: limitsLoaded } = useUsageLimits();
+
+  // Gate: check quiz session limit on mount
+  useEffect(() => {
+    if (!limitsLoaded) return;
+    if (!canDoQuiz()) {
+      router.replace('/paywall?reason=quiz');
+      return;
+    }
+    void incrementQuizSessions();
+  }, [limitsLoaded]);
 
   const allWordPool = useMemo(() => allCards.map((c) => c.word), []);
   const { ttsVoice: prefetchVoice } = useSettings();

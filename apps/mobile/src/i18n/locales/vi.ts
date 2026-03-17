@@ -177,6 +177,11 @@ const vi: Translations = {
   onboardingPaywallTitle:     'Mở khóa\ntiềm năng của bạn',
   onboardingPaywallSub:       'Tất cả để chinh phục IELTS Speaking',
   onboardingPaywallSkip:      'Dùng thử miễn phí',
+  newWordsToday:              'từ mới hôm nay',
+  paywallReasonWords:         'Bạn đã học 5 từ mới hôm nay!',
+  paywallReasonVoice:         'Luyện nói là tính năng Pro',
+  paywallReasonGrammar:       'Đã đạt giới hạn bài ngữ pháp hôm nay',
+  paywallReasonQuiz:          'Đã đạt giới hạn bài quiz hôm nay',
 };
 
 export default vi;

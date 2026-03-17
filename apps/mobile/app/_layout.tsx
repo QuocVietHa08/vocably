@@ -18,7 +18,7 @@ import {
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SettingsProvider } from '@/src/context/SettingsContext';
 // import { AuthProvider, useAuth } from '@/src/context/AuthContext';
-// import { PurchasesProvider } from '@/src/context/PurchasesContext';
+import { PurchasesProvider } from '@/src/context/PurchasesContext';
 import { WELCOME_SEEN_KEY } from './welcome';
 
 // Keep the splash screen visible while fonts + auth load.
@@ -81,7 +81,7 @@ export default function RootLayout() {
         <KeyboardProvider>
         <SettingsProvider>
           {/* <AuthProvider> */}
-          {/* <PurchasesProvider> */}
+          <PurchasesProvider>
               <StatusBar style="auto" />
               <NavigationGuard />
               <Stack
@@ -91,7 +91,7 @@ export default function RootLayout() {
                   contentStyle: { backgroundColor: 'transparent' },
                 }}
               />
-          {/* </PurchasesProvider> */}
+          </PurchasesProvider>
           {/* </AuthProvider> */}
         </SettingsProvider>
         </KeyboardProvider>

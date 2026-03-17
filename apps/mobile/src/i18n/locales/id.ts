@@ -177,6 +177,11 @@ const id: Translations = {
   onboardingPaywallTitle:     'Buka Potensi\nPenuh Anda',
   onboardingPaywallSub:       'Semua yang dibutuhkan untuk menguasai IELTS Speaking',
   onboardingPaywallSkip:      'Mulai Uji Coba Gratis',
+  newWordsToday:              'kata baru hari ini',
+  paywallReasonWords:         'Anda sudah belajar 5 kata baru hari ini!',
+  paywallReasonVoice:         'Latihan berbicara adalah fitur Pro',
+  paywallReasonGrammar:       'Batas pelajaran tata bahasa harian tercapai',
+  paywallReasonQuiz:          'Batas kuis harian tercapai',
 };
 
 export default id;

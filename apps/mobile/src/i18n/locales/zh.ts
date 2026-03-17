@@ -177,6 +177,11 @@ const zh: Translations = {
   onboardingPaywallTitle:     '释放你的\n全部潜力',
   onboardingPaywallSub:       '雅思口语备考所需的一切',
   onboardingPaywallSkip:      '开始免费试用',
+  newWordsToday:              '今日新词',
+  paywallReasonWords:         '你今天已学习5个新词！',
+  paywallReasonVoice:         '口语练习是Pro功能',
+  paywallReasonGrammar:       '今日语法课程已达上限',
+  paywallReasonQuiz:          '今日测验已达上限',
 };
 
 export default zh;

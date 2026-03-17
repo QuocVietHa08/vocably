@@ -4,7 +4,7 @@ import {
   ScrollView, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 // import type { PurchasesPackage } from 'react-native-purchases';
 // import { PACKAGE_TYPE } from 'react-native-purchases';
 import { useTheme } from '@/src/theme';
@@ -18,8 +18,17 @@ export default function PaywallScreen() {
   const t                                     = useTheme();
   const T                                     = useT();
   const router                                = useRouter();
+  const { reason }                            = useLocalSearchParams<{ reason?: string }>();
   const { offering, purchasing, purchase, restore } = usePurchases();
   const [selected, setSelected]               = useState<'monthly' | 'yearly'>('yearly');
+
+  const reasonMessages: Record<string, string> = {
+    words:   T.paywallReasonWords,
+    voice:   T.paywallReasonVoice,
+    grammar: T.paywallReasonGrammar,
+    quiz:    T.paywallReasonQuiz,
+  };
+  const reasonText = reason ? reasonMessages[reason] : undefined;
 
   // TODO: re-enable when payment is configured
   const monthlyPkg: any = null;
@@ -60,6 +69,13 @@ export default function PaywallScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
+        {/* Contextual reason banner */}
+        {reasonText && (
+          <View style={[styles.reasonBanner, { backgroundColor: `${t.accent}14`, borderColor: `${t.accent}40` }]}>
+            <Text style={[styles.reasonText, { color: t.accent }]}>{reasonText}</Text>
+          </View>
+        )}
+
         {/* Hero */}
         <View style={styles.hero}>
           <View style={styles.badgeRow}>
@@ -187,6 +203,13 @@ const styles = StyleSheet.create({
   closeText: { fontSize: 18 },
 
   scroll: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 },
+
+  reasonBanner: {
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 16, paddingVertical: 12,
+    marginBottom: 8, alignItems: 'center',
+  },
+  reasonText: { fontSize: 14, fontFamily: F.semibold, textAlign: 'center' },
 
   hero:     { alignItems: 'center', marginBottom: 28, marginTop: 16 },
   badgeRow: { marginBottom: 16 },

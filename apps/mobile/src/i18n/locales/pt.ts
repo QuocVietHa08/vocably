@@ -177,6 +177,11 @@ const pt: Translations = {
   onboardingPaywallTitle:     'Desbloqueie todo\nseu potencial',
   onboardingPaywallSub:       'Tudo que você precisa para dominar o IELTS Speaking',
   onboardingPaywallSkip:      'Iniciar teste gratuito',
+  newWordsToday:              'palavras novas hoje',
+  paywallReasonWords:         'Você aprendeu 5 palavras novas hoje!',
+  paywallReasonVoice:         'A prática oral é um recurso Pro',
+  paywallReasonGrammar:       'Limite diário de lições de gramática atingido',
+  paywallReasonQuiz:          'Limite diário de quizzes atingido',
 };
 
 export default pt;

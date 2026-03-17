@@ -177,6 +177,11 @@ const ko: Translations = {
   onboardingPaywallTitle:     '잠재력을\n최대한 발휘하세요',
   onboardingPaywallSub:       'IELTS 스피킹 정복에 필요한 모든 것',
   onboardingPaywallSkip:      '무료 체험 시작',
+  newWordsToday:              '오늘의 새 단어',
+  paywallReasonWords:         '오늘 새 단어 5개를 학습했습니다!',
+  paywallReasonVoice:         '스피킹 연습은 Pro 기능입니다',
+  paywallReasonGrammar:       '오늘의 문법 레슨 한도에 도달했습니다',
+  paywallReasonQuiz:          '오늘의 퀴즈 한도에 도달했습니다',
 };
 
 export default ko;

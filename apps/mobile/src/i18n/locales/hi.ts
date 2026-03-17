@@ -177,6 +177,11 @@ const hi: Translations = {
   onboardingPaywallTitle:     'अपनी पूरी\nक्षमता अनलॉक करें',
   onboardingPaywallSub:       'IELTS Speaking में सफलता के लिए सब कुछ',
   onboardingPaywallSkip:      'मुफ्त ट्रायल शुरू करें',
+  newWordsToday:              'आज के नए शब्द',
+  paywallReasonWords:         'आपने आज 5 नए शब्द सीखे!',
+  paywallReasonVoice:         'बोलने का अभ्यास Pro फीचर है',
+  paywallReasonGrammar:       'आज की व्याकरण पाठ सीमा पूरी हो गई',
+  paywallReasonQuiz:          'आज की क्विज़ सीमा पूरी हो गई',
 };
 
 export default hi;

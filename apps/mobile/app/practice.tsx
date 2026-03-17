@@ -10,7 +10,6 @@ import * as FileSystem from 'expo-file-system';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Bookmark } from 'lucide-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/src/theme';
 import { usePurchases } from '@/src/context/PurchasesContext';
 import { F } from '@/src/theme/fonts';
@@ -30,25 +29,6 @@ import type { Message, GrammarFeedback } from '@/src/components/practice/types';
 import { parseSegments } from '@/src/components/practice/types';
 
 /* ─── Main screen ────────────────────────────────────────────────────── */
-
-const FREE_SESSIONS_PER_DAY = 3;
-const FREE_MESSAGES_PER_DAY = 5;
-const SESSION_COUNT_KEY     = '@vocally/sessionCount';
-const MESSAGE_COUNT_KEY     = '@vocally/messageCount';
-
-async function getTodayCount(key: string): Promise<number> {
-  const today = new Date().toISOString().slice(0, 10);
-  const raw   = await AsyncStorage.getItem(key);
-  if (!raw) return 0;
-  const { date, count } = JSON.parse(raw);
-  return date === today ? count : 0;
-}
-
-async function incrementCount(key: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  const count = await getTodayCount(key);
-  await AsyncStorage.setItem(key, JSON.stringify({ date: today, count: count + 1 }));
-}
 
 export default function PracticeScreen() {
   const t         = useTheme();
@@ -104,19 +84,13 @@ export default function PracticeScreen() {
       return;
     }
 
-    async function checkAndConnect() {
-      if (!isPro) {
-        const count = await getTodayCount(SESSION_COUNT_KEY);
-        if (count >= FREE_SESSIONS_PER_DAY) {
-          router.replace('/paywall');
-          return;
-        }
-        await incrementCount(SESSION_COUNT_KEY);
-      }
-      void connect();
+    // Voice practice is completely locked for free users
+    if (!isPro) {
+      router.replace('/paywall?reason=voice');
+      return;
     }
 
-    void checkAndConnect();
+    void connect();
 
     const t = setInterval(() => setElapsed((n) => n + 1), 1000);
     elapsedTimerRef.current = t;
@@ -521,16 +495,6 @@ Write a natural, fluent sample response the student could say. 2–4 sentences. 
   const sendTextMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-
-    // Gate: free users limited to 5 messages/day
-    if (!isPro) {
-      const msgCount = await getTodayCount(MESSAGE_COUNT_KEY);
-      if (msgCount >= FREE_MESSAGES_PER_DAY) {
-        router.push('/paywall');
-        return;
-      }
-      await incrementCount(MESSAGE_COUNT_KEY);
-    }
 
     setSendingText(true);
     const itemId = `typed-${Date.now()}`;
