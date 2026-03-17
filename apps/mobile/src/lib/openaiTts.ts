@@ -1,8 +1,8 @@
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 
-const API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '';
-const TTS_URL = 'https://api.openai.com/v1/audio/speech';
+const BACKEND_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
+const TTS_URL = `${BACKEND_URL}/api/tts`;
 
 export type OpenAIVoice = 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
 
@@ -70,7 +70,7 @@ async function ensureCached(
   voice: OpenAIVoice,
   speed: number,
 ): Promise<string | null> {
-  if (!text.trim() || !API_KEY) return null;
+  if (!text.trim() || !BACKEND_URL) return null;
 
   const key     = cacheKeyFor(text, voice, speed);
   const fileUri = fileUriFor(key);
@@ -88,22 +88,13 @@ async function ensureCached(
   // 3. Already fetching — share the promise
   if (inflight.has(key)) return inflight.get(key)!;
 
-  // 4. Fetch from OpenAI and write directly to disk via downloadAsync
+  // 4. Fetch from backend proxy and write directly to disk via downloadAsync
   const promise = (async (): Promise<string | null> => {
     try {
       const result = await FileSystem.downloadAsync(TTS_URL, fileUri, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'tts-1',
-          input: text,
-          voice,
-          speed,
-          response_format: 'mp3',
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: text, voice, speed }),
       });
 
       if (result.status !== 200) {
@@ -159,7 +150,7 @@ export async function ttsSpeak(
   voice: OpenAIVoice = 'nova',
   speed: number = 1.0,
 ) {
-  if (!text.trim() || !API_KEY) return;
+  if (!text.trim() || !BACKEND_URL) return;
 
   await ttsStop();
 

@@ -36,7 +36,7 @@ import { ttsSpeak, ttsStop, ttsPrefetch } from '@/src/lib/openaiTts';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const MAX_TYPING_ATTEMPTS = 3;
-const OPENAI_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '';
+const BACKEND_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 
 /* ─── Types ──────────────────────────────────────────────────── */
 
@@ -584,10 +584,9 @@ function PronounceQuiz({
       formData.append('model', 'whisper-1');
       formData.append('language', 'en');
 
-      const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method:  'POST',
-        headers: { Authorization: `Bearer ${OPENAI_KEY}` },
-        body:    formData,
+      const resp = await fetch(`${BACKEND_URL}/api/transcribe`, {
+        method: 'POST',
+        body:   formData,
       });
       const data = await resp.json();
       const text = (data.text ?? '').trim();
@@ -611,7 +610,7 @@ function PronounceQuiz({
     }
   }, [card.word, onResult]);
 
-  const noKey = !OPENAI_KEY;
+  const noKey = !BACKEND_URL;
 
   return (
     <View style={styles.quizBody}>

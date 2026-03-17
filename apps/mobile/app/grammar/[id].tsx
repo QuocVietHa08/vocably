@@ -23,7 +23,7 @@ function tFmt(template: string, ...args: (string | number)[]): string {
 
 /* ─── Config ─────────────────────────────────────────────────── */
 
-const API_KEY       = process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '';
+const BACKEND_URL   = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 const COMPLETED_KEY = '@vocally/grammarCompleted';
 
 type Step = 'learn' | 'quiz' | 'practice' | 'done';
@@ -347,12 +347,9 @@ Respond ONLY with a valid JSON array (no markdown fences, no extra text) in this
   }
 ]`;
 
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetch(`${BACKEND_URL}/api/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           temperature: 0.3,
