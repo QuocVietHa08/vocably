@@ -14,6 +14,7 @@ import { F } from '@/src/theme/fonts';
 import { useT } from '@/src/i18n/useT';
 import { ALL_LESSONS, LEVEL_COLORS } from '@/src/data/grammar';
 import type { GrammarLesson } from '@/src/data/grammar';
+import { useUsageLimits } from '@/src/hooks/useUsageLimits';
 
 /** Replace {0}, {1}, … placeholders in a translated template string */
 function tFmt(template: string, ...args: (string | number)[]): string {
@@ -547,9 +548,20 @@ export default function GrammarLessonScreen() {
   const T       = useT();
   const router  = useRouter();
   const lesson  = ALL_LESSONS.find((l) => l.id === id);
+  const { canDoGrammarLesson, incrementGrammarLessons, loaded: limitsLoaded } = useUsageLimits();
 
   const [step,       setStep]       = useState<Step>('learn');
   const [quizScore,  setQuizScore]  = useState(0);
+
+  // Gate: check grammar lesson limit on mount
+  useEffect(() => {
+    if (!limitsLoaded) return;
+    if (!canDoGrammarLesson()) {
+      router.replace('/paywall?reason=grammar');
+      return;
+    }
+    void incrementGrammarLessons();
+  }, [limitsLoaded]);
 
   if (!lesson) return null;
 
@@ -568,6 +580,7 @@ export default function GrammarLessonScreen() {
   }
 
   async function handlePracticeComplete() {
+    if (!lesson) return;
     // Save completion
     try {
       const raw = await AsyncStorage.getItem(COMPLETED_KEY);

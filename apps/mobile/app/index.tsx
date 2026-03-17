@@ -11,6 +11,7 @@ import { FlashCard } from '@/src/components/flashcard/FlashCard';
 import { ResultsScreen } from '@/src/components/flashcard/ResultsScreen';
 import { useFavorites } from '@/src/hooks/useFavorites';
 import { useLearnedWords } from '@/src/hooks/useLearnedWords';
+import { useUsageLimits, NEW_WORDS_LIMIT } from '@/src/hooks/useUsageLimits';
 import { useSettings } from '@/src/context/SettingsContext';
 import { useT } from '@/src/i18n/useT';
 import { Mic, Settings2, BookOpen, RefreshCw, Dumbbell, ChevronRight } from 'lucide-react-native';
@@ -36,7 +37,8 @@ export default function HomeScreen() {
   const router   = useRouter();
   const { nativeLanguage } = useSettings();
   const { favoriteIds, isFavorite, toggleFavorite, loaded } = useFavorites();
-  const { markLearned } = useLearnedWords();
+  const { markLearned, isLearned } = useLearnedWords();
+  const { canLearnNewWord, incrementNewWords, newWordsToday, isPro } = useUsageLimits();
 
   const [filterMode,  setFilterMode]  = useState<FilterMode>('all');
   const [autoRepeat,  setAutoRepeat]  = useState(false);
@@ -66,9 +68,14 @@ export default function HomeScreen() {
     ttsStop();
     const card = cards[index];
     if (result === 'know') {
+      const isNewWord = !isLearned(card.id);
+      if (isNewWord && !canLearnNewWord()) {
+        router.push('/paywall?reason=words');
+        return;
+      }
       setKnown((n) => n + 1);
-      // Persist this word as learned
       void markLearned(card.id);
+      if (isNewWord) void incrementNewWords();
     } else {
       setLearning((n) => n + 1);
       setMissedCards((prev) => [...prev, card]);
@@ -181,6 +188,15 @@ export default function HomeScreen() {
             <RefreshCw size={15} color={autoRepeat ? t.accent : t.muted} strokeWidth={2.5} />
           </Pressable>
         </View>
+
+        {/* ── Daily new words indicator ── */}
+        {!isPro && (
+          <View style={[styles.limitBadge, { backgroundColor: t.subtle, borderColor: t.border }]}>
+            <Text style={[styles.limitBadgeText, { color: t.muted }]}>
+              {newWordsToday}/{NEW_WORDS_LIMIT} {T.newWordsToday}
+            </Text>
+          </View>
+        )}
 
         {/* ── Practice entry strip ── */}
         <Pressable
@@ -341,4 +357,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   repeatBadgeText: { fontSize: 10, fontFamily: F.semibold, letterSpacing: 0.4 },
+
+  /* Daily limit badge */
+  limitBadge: {
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 6,
+    alignSelf: 'flex-start', marginBottom: 10,
+  },
+  limitBadgeText: { fontSize: 11, fontFamily: F.medium },
 });

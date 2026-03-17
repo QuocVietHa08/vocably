@@ -197,6 +197,13 @@ export interface Translations {
   onboardingPaywallTitle:     string;
   onboardingPaywallSub:       string;
   onboardingPaywallSkip:      string;
+
+  /* ── Usage limits ────────────────────────────────────────────── */
+  newWordsToday:         string;
+  paywallReasonWords:    string;
+  paywallReasonVoice:    string;
+  paywallReasonGrammar:  string;
+  paywallReasonQuiz:     string;
 }
 
 /* ════════════════════════════════════════════════════════

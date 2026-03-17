@@ -177,6 +177,11 @@ const ar: Translations = {
   onboardingPaywallTitle:     'أطلق العنان\nلإمكاناتك الكاملة',
   onboardingPaywallSub:       'كل ما تحتاجه للتفوق في IELTS Speaking',
   onboardingPaywallSkip:      'ابدأ التجربة المجانية',
+  newWordsToday:              'كلمات جديدة اليوم',
+  paywallReasonWords:         'لقد تعلمت 5 كلمات جديدة اليوم!',
+  paywallReasonVoice:         'ممارسة المحادثة ميزة احترافية',
+  paywallReasonGrammar:       'تم الوصول إلى الحد اليومي لدروس القواعد',
+  paywallReasonQuiz:          'تم الوصول إلى الحد اليومي للاختبارات',
 };
 
 export default ar;
