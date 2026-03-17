@@ -24,7 +24,7 @@ import { PracticeBottomBar } from '@/src/components/practice/PracticeBottomBar';
 
 /* Constants & types */
 import {
-  API_KEY, WS_URL, SR, WAV_HDR, CHUNK_MS, INSTRUCTIONS, RECORDING_OPTIONS, STATUS_LABEL, pcmToWavBase64, buildConnectChimeBase64,
+  BACKEND_URL, WS_URL, SR, WAV_HDR, CHUNK_MS, INSTRUCTIONS, RECORDING_OPTIONS, STATUS_LABEL, pcmToWavBase64, buildConnectChimeBase64,
 } from '@/src/components/practice/constants';
 import type { Message, GrammarFeedback } from '@/src/components/practice/types';
 import { parseSegments } from '@/src/components/practice/types';
@@ -98,8 +98,8 @@ export default function PracticeScreen() {
 
   /* ── Connect on mount (with session gate) ── */
   useEffect(() => {
-    if (!API_KEY) {
-      setError('Missing EXPO_PUBLIC_OPENAI_API_KEY in apps/mobile/.env');
+    if (!BACKEND_URL) {
+      setError('Service not configured.');
       setSphereState('idle');
       return;
     }
@@ -259,10 +259,29 @@ export default function PracticeScreen() {
         return;
       }
 
+      // Fetch a short-lived ephemeral token from our backend — keeps API key off the device
+      const tokenRes = await fetch(`${BACKEND_URL}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: 'alloy' }),
+      });
+      if (!tokenRes.ok) {
+        setError('Could not start session. Please try again.');
+        setSphereState('idle');
+        return;
+      }
+      const tokenData = await tokenRes.json();
+      const ephemeralKey: string = tokenData?.client_secret?.value ?? '';
+      if (!ephemeralKey) {
+        setError('Could not start session. Please try again.');
+        setSphereState('idle');
+        return;
+      }
+
       const ws = new (WebSocket as any)(
         WS_URL,
         [],
-        { headers: { Authorization: `Bearer ${API_KEY}`, 'OpenAI-Beta': 'realtime=v1' } },
+        { headers: { Authorization: `Bearer ${ephemeralKey}`, 'OpenAI-Beta': 'realtime=v1' } },
       ) as WebSocket;
 
       wsRef.current = ws;
@@ -295,7 +314,7 @@ export default function PracticeScreen() {
 
       ws.onerror = (e: Event) => {
         console.warn('WebSocket error', e);
-        setError('Connection error — check your API key and network.');
+        setError('Connection error — please check your network and try again.');
         setSphereState('idle');
       };
 
@@ -305,7 +324,7 @@ export default function PracticeScreen() {
 
     } catch (e) {
       console.warn('Connect failed:', e);
-      setError('Could not connect to OpenAI. Check your API key.');
+      setError('Could not connect. Please try again.');
       setSphereState('idle');
     }
   };
@@ -443,19 +462,22 @@ export default function PracticeScreen() {
     checkedIds.current.add(messageId);
     setGrammarFeedback((prev) => ({ ...prev, [messageId]: { loading: true, issues: [], score: 0 } }));
     try {
-      const res  = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res  = await fetch(`${BACKEND_URL}/api/chat`, {
         method:  'POST',
-        headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model:           'gpt-4o-mini',
           response_format: { type: 'json_object' },
-          messages: [{
-            role:    'user',
-            content: `Analyze this IELTS speaking response. Return ONLY valid JSON:
+          messages: [
+            {
+              role:    'user',
+              content: `Analyze this IELTS speaking response. Return ONLY valid JSON:
 {"score":<number 1-9>,"recommended":"<full corrected sentence>","issues":[{"text":"<original phrase>","suggestion":"<improved phrase>","type":"grammar|vocab|style"}]}
 Rules: score is IELTS band 1-9. recommended is the full sentence rewritten naturally. Limit issues to 3 most important. Empty issues array and omit recommended if no issues.
-Text: "${text.replace(/"/g, '\\"')}"`,
-          }],
+Text to analyze:`,
+            },
+            { role: 'user', content: text },
+          ],
         }),
       });
       const data   = await res.json();
@@ -493,18 +515,18 @@ Text: "${text.replace(/"/g, '\\"')}"`,
   const suggestReply = useCallback(async (messageId: string, coachText: string) => {
     setSuggestingIds((prev) => new Set([...prev, messageId]));
     try {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetch(`${BACKEND_URL}/api/chat`, {
         method:  'POST',
-        headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-          messages: [{
-            role:    'user',
-            content: `You are helping an IELTS student practise speaking. The coach just said:
-"${coachText.replace(/"/g, '\\"')}"
-
-Write a natural, fluent sample response the student could say. 2–4 sentences. Conversational IELTS speaking style. Return ONLY the response text, no explanation or quotes.`,
-          }],
+          messages: [
+            {
+              role:    'user',
+              content: 'You are helping an IELTS student practise speaking. The coach just said the following. Write a natural, fluent sample response the student could say. 2–4 sentences. Conversational IELTS speaking style. Return ONLY the response text, no explanation or quotes. Coach message:',
+            },
+            { role: 'user', content: coachText },
+          ],
         }),
       });
       const data       = await res.json();

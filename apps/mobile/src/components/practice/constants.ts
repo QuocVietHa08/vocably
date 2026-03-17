@@ -3,7 +3,7 @@ import type { SphereState } from '@/src/components/voice/VoiceSphere';
 
 /* ─── Config ─────────────────────────────────────────────────────────── */
 
-export const API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '';
+export const BACKEND_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 export const WS_URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17';
 export const SR = 24000;   // sample rate
 export const WAV_HDR = 44;      // WAV header bytes to skip when reading PCM
