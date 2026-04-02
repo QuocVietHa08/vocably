@@ -7,7 +7,7 @@ vocally/
 ├── apps/
 │   ├── web/        Next.js 15 — flashcards + voice practice (web)
 │   ├── mobile/     Expo (React Native) — flashcards + voice practice (iOS/Android)
-│   ├── api/        Express — backend API, session proxy, word storage
+│   ├── api/        FastAPI (Python) — backend API, recommendations, spaced repetition
 │   └── admin/      Next.js — admin dashboard (analytics, vocabulary management)
 │
 └── packages/
@@ -26,7 +26,7 @@ npm run dev
 # Run mobile app (Expo Go)
 npm run dev:mobile
 
-# Run API server (localhost:4000)
+# Run API server (localhost:5000)
 npm run dev:api
 
 # Run admin panel (localhost:3001)
@@ -45,10 +45,16 @@ Voice practice requires a custom Expo dev build (`npx expo run:ios`) with `react
 Scan the QR code from `npm run dev:mobile` with the **Expo Go** app.
 
 ### `apps/api`
-Express backend. Planned routes:
-- `POST /api/session` — OpenAI Realtime ephemeral token (move from web)
-- `GET  /api/words`   — fetch captured vocabulary
-- `POST /api/words`   — save a word
+FastAPI (Python) backend — AI-powered vocabulary recommendation engine.
+- `POST /api/swipe`              — fire-and-forget swipe recording
+- `GET  /api/cards/next/{userId}` — pre-loaded cards from queue (~20ms)
+- `POST /api/queue/prefill`      — fill card queue on app open
+- `POST /api/recommendations`    — on-demand AI recommendations
+- `POST /api/level`              — CEFR level detection
+- `GET  /api/interests/{userId}` — topic interest scores
+- `GET  /api/due-cards/{userId}` — spaced repetition due cards
+
+See [apps/api/README.md](apps/api/README.md) for setup & deploy guide.
 
 ### `apps/admin`
 Admin dashboard for reviewing sessions, words, and user analytics.

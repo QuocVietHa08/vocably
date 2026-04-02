@@ -5,7 +5,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   FadeInRight, FadeOutLeft, FadeIn,
-  useSharedValue, useAnimatedStyle, withSequence, withTiming,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -18,67 +17,11 @@ import { useLearnedWords } from '@/src/hooks/useLearnedWords';
 import { useUsageLimits } from '@/src/hooks/useUsageLimits';
 import { useSettings } from '@/src/context/SettingsContext';
 import { useT } from '@/src/i18n/useT';
-import { Mic, Settings2, BookOpen, RefreshCw, Dumbbell, ChevronRight, RotateCcw, X, Check } from 'lucide-react-native';
+import { DrawerMenu, BurgerIcon } from '@/src/components/DrawerMenu';
+import { FilterTabs } from '@/src/components/FilterTabs';
+import { ActionButton } from '@/src/components/ActionButton';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
-
-/* ─── Animated action button ──────────────────────────────────── */
-
-type ActionVariant = 'know' | 'dontknow' | 'flip';
-
-const KNOW_COLOR     = '#22c55e';
-const DONTKNOW_COLOR = '#ef4444';
-const FLIP_COLOR     = '#3b82f6';
-
-// Semi-transparent tinted borders (~25% opacity in hex)
-const KNOW_BORDER     = '#22c55e40';
-const DONTKNOW_BORDER = '#ef444440';
-const FLIP_BORDER     = '#3b82f640';
-
-function ActionButton({
-  variant,
-  onPress,
-}: {
-  variant: ActionVariant;
-  onPress: () => void;
-}) {
-  const t     = useTheme();
-  const T     = useT();
-  const scale = useSharedValue(1);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  function handlePress() {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scale.value = withSequence(
-      withTiming(0.95, { duration: 70 }),
-      withTiming(1.0,  { duration: 110 }),
-    );
-    onPress();
-  }
-
-  const cfg =
-    variant === 'know'
-      ? { icon: <Check    size={20} color={KNOW_COLOR}     strokeWidth={2.2} />, label: T.cardKnow,  color: KNOW_COLOR,     border: KNOW_BORDER }
-      : variant === 'dontknow'
-      ? { icon: <X        size={20} color={DONTKNOW_COLOR} strokeWidth={2.2} />, label: T.cardAgain, color: DONTKNOW_COLOR, border: DONTKNOW_BORDER }
-      : { icon: <RotateCcw size={19} color={FLIP_COLOR}     strokeWidth={2}   />, label: T.cardFlip,  color: FLIP_COLOR,     border: FLIP_BORDER };
-
-  return (
-    <Pressable onPress={handlePress} hitSlop={10} style={{ flex: 1 }}>
-      <Animated.View style={[
-        styles.actionBtn,
-        { backgroundColor: t.surface, borderColor: cfg.border },
-        animStyle,
-      ]}>
-        {cfg.icon}
-        <Text style={[styles.actionBtnText, { color: cfg.color }]}>{cfg.label}</Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -101,16 +44,25 @@ export default function HomeScreen() {
   const { favoriteIds, isFavorite, toggleFavorite, loaded } = useFavorites();
   const { markLearned, isLearned } = useLearnedWords();
   const { canLearnNewWord, incrementNewWords, newWordsToday, wordsLimit, isPro } = useUsageLimits();
-    const flashCardRef = useRef<FlashCardRef>(null);
+  const flashCardRef = useRef<FlashCardRef>(null);
 
-  const [filterMode,  setFilterMode]  = useState<FilterMode>('all');
-  const [autoRepeat,  setAutoRepeat]  = useState(false);
+  const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const [cards,    setCards]    = useState<Flashcard[]>(() => shuffle(allCards));
-  const [index,    setIndex]    = useState(0);
-  const [known,    setKnown]    = useState(0);
-  const [learning, setLearning] = useState(0);
-  const [done,     setDone]     = useState(false);
+  function openDrawer() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setDrawerOpen(true);
+  }
+  function closeDrawer() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDrawerOpen(false);
+  }
+
+  const [cards,       setCards]       = useState<Flashcard[]>(() => shuffle(allCards));
+  const [index,       setIndex]       = useState(0);
+  const [known,       setKnown]       = useState(0);
+  const [learning,    setLearning]    = useState(0);
+  const [done,        setDone]        = useState(false);
   const [missedCards, setMissedCards] = useState<Flashcard[]>([]);
 
   // Re-build deck when filter changes
@@ -150,17 +102,6 @@ export default function HomeScreen() {
     }
   }, [index, total, cards, markLearned, isLearned, canLearnNewWord, incrementNewWords, router]);
 
-  // Auto-repeat: when done, if there are missed cards and repeat is on → loop
-  useEffect(() => {
-    if (done && autoRepeat && missedCards.length > 0) {
-      const timer = setTimeout(() => {
-        setCards(shuffle(missedCards));
-        setIndex(0); setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
-      }, 1800);
-      return () => clearTimeout(timer);
-    }
-  }, [done, autoRepeat, missedCards]);
-
   const restart = () => {
     ttsStop();
     const source = filterMode === 'favorites'
@@ -180,97 +121,29 @@ export default function HomeScreen() {
     if (currentCard) toggleFavorite(currentCard.id);
   }, [currentCard, toggleFavorite]);
 
-  // ── Filter bar item ──
-  const FilterBtn = ({ mode, label, count }: { mode: FilterMode; label: string; count?: number }) => {
-    const active = filterMode === mode;
-    return (
-      <Pressable
-        style={[styles.filterBtn, active && { backgroundColor: t.accent }]}
-        onPress={() => setFilterMode(mode)}
-      >
-        <Text style={[styles.filterBtnText, { color: active ? '#fff' : t.muted }]}>
-          {label}{count !== undefined ? ` (${count})` : ''}
-        </Text>
-      </Pressable>
-    );
-  };
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]}>
       <View style={[styles.container, { backgroundColor: t.bg }]}>
 
-        {/* ── Header ── */}
+        {/* ── Header: burger | filter tabs | counter ── */}
         <View style={styles.header}>
-          <View style={styles.navBtns}>
-            <Pressable
-              style={[styles.navBtn, { borderColor: t.border }]}
-              onPress={() => router.push('/practice')}
-            >
-              <Mic size={14} color={t.muted} strokeWidth={2.5} />
-              <Text style={[styles.navBtnText, { color: t.muted }]}>{T.speakingBtn}</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.navBtn, { borderColor: t.border }]}
-              onPress={() => router.push('/grammar')}
-            >
-              <BookOpen size={14} color={t.muted} strokeWidth={2.5} />
-              <Text style={[styles.navBtnText, { color: t.muted }]}>{T.grammarBtn}</Text>
-            </Pressable>
-          </View>
+          <Pressable style={styles.burgerBtn} onPress={openDrawer} hitSlop={10}>
+            <BurgerIcon isOpen={drawerOpen} color={t.fg} />
+          </Pressable>
+
+          <FilterTabs filterMode={filterMode} onChange={setFilterMode} />
 
           <View style={styles.counter}>
             <View style={[styles.dot, { backgroundColor: t.accent }]} />
-            <Text style={[styles.counterNum, { color: t.fg }]}>
-              {newWordsToday}
-            </Text>
+            <Text style={[styles.counterNum, { color: t.fg }]}>{newWordsToday}</Text>
             <Text style={[styles.counterTotal, { color: t.muted }]}>/{wordsLimit}</Text>
           </View>
-
-          <Pressable
-            style={[styles.settingsBtn, { borderColor: t.border }]}
-            onPress={() => router.push('/settings')}
-          >
-            <Settings2 size={18} color={t.muted} strokeWidth={2} />
-          </Pressable>
         </View>
-
-        {/* ── Toolbar: filter + toggles ── */}
-        <View style={styles.toolbar}>
-          {/* Filter pills */}
-          <View style={[styles.filterBar, { backgroundColor: t.subtle, borderColor: t.border }]}>
-            <FilterBtn mode="all"       label={T.filterAll} />
-            <FilterBtn mode="favorites" label={T.filterSaved} count={favCount > 0 ? favCount : undefined} />
-          </View>
-
-          {/* Auto-repeat toggle */}
-          <Pressable
-            style={[styles.toggleBtn, { borderColor: autoRepeat ? t.accent : t.border }]}
-            onPress={() => setAutoRepeat((v) => !v)}
-            hitSlop={8}
-          >
-            <RefreshCw size={15} color={autoRepeat ? t.accent : t.muted} strokeWidth={2.5} />
-          </Pressable>
-        </View>
-
-        {/* ── Practice entry strip ── */}
-        <Pressable
-          style={[styles.practiceStrip, { backgroundColor: t.surface, borderColor: t.border }]}
-          onPress={() => router.push('/quiz')}
-        >
-          <View style={[styles.practiceIconWrap, { backgroundColor: `${t.accent}18` }]}>
-            <Dumbbell size={16} color={t.accent} strokeWidth={2.2} />
-          </View>
-          <View style={styles.practiceInfo}>
-            <Text style={[styles.practiceTitle, { color: t.fg }]}>{T.practiceTitle}</Text>
-            <Text style={[styles.practiceSub, { color: t.muted }]}>{T.practiceSub}</Text>
-          </View>
-          <ChevronRight size={16} color={t.muted} strokeWidth={2.5} />
-        </Pressable>
 
         {/* Empty favorites message */}
         {filterMode === 'favorites' && favCount === 0 && (
           <Animated.View entering={FadeIn} style={styles.emptyFav}>
-            <Text style={[styles.emptyFavIcon]}>🤍</Text>
+            <Text style={styles.emptyFavIcon}>🤍</Text>
             <Text style={[styles.emptyFavText, { color: t.muted }]}>{T.emptyFavText}</Text>
             <Text style={[styles.emptyFavHint, { color: t.muted }]}>{T.emptyFavHint}</Text>
           </Animated.View>
@@ -314,11 +187,12 @@ export default function HomeScreen() {
           </View>
         )}
 
-          <View style={styles.swipeHint}>
-            <Text style={[styles.swipeHintText, { color: t.muted }]}>{T.swipeHint}</Text>
-          </View>
+        <View style={styles.swipeHint}>
+          <Text style={[styles.swipeHintText, { color: t.muted }]}>{T.swipeHint}</Text>
+        </View>
 
       </View>
+      <DrawerMenu isOpen={drawerOpen} onClose={closeDrawer} />
     </SafeAreaView>
   );
 }
@@ -331,14 +205,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 16, paddingBottom: 16,
   },
-  navBtns:    { flexDirection: 'row', gap: 8 },
-  navBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7,
-  },
-  navBtnText: { fontSize: 13, fontFamily: F.medium },
-  settingsBtn: {
-    width: 36, height: 36, borderRadius: 18, borderWidth: 1,
+  burgerBtn: {
+    width: 40, height: 40,
     alignItems: 'center', justifyContent: 'center',
   },
   counter: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
@@ -346,56 +214,8 @@ const styles = StyleSheet.create({
   counterNum: { fontSize: 22, fontFamily: F.bold, fontVariant: ['tabular-nums'] },
   counterTotal: { fontSize: 14 },
 
-  /* Toolbar */
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  filterBar: {
-    flex: 1,
-    flexDirection: 'row',
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 3,
-    gap: 2,
-  },
-  filterBtn: {
-    flex: 1,
-    borderRadius: 16,
-    paddingVertical: 6,
-    alignItems: 'center',
-  },
-  filterBtnText: { fontSize: 12, fontFamily: F.semibold },
-  toggleBtn: {
-    width: 34, height: 34, borderRadius: 17, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-  },
-
-  /* Practice entry strip */
-  practiceStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 14,
-  },
-  practiceIconWrap: {
-    width: 36, height: 36, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  practiceInfo: { flex: 1, gap: 2 },
-  practiceTitle: { fontSize: 14, fontFamily: F.bold },
-  practiceSub:   { fontSize: 11, fontFamily: F.medium },
-
   /* Empty favorites */
-  emptyFav: {
-    alignItems: 'center', gap: 6, paddingTop: 60,
-  },
+  emptyFav: { alignItems: 'center', gap: 6, paddingTop: 60 },
   emptyFavIcon: { fontSize: 32 },
   emptyFavText: { fontSize: 15, fontFamily: F.semibold },
   emptyFavHint: { fontSize: 12, opacity: 0.7 },
@@ -409,28 +229,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     paddingTop: 6,
   },
-  actionBtn: {
-    width: '100%',
-    height: 58,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
-  actionBtnText: {
-    fontSize: 12,
-    fontFamily: F.semibold,
-    letterSpacing: 0.3,
-  },
 
   swipeHint: { paddingBottom: 24, alignItems: 'center' },
   swipeHintText: { fontSize: 12, opacity: 0.6 },
-
-  repeatBadge: {
-    position: 'absolute', bottom: 28, right: 24,
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-  },
-  repeatBadgeText: { fontSize: 10, fontFamily: F.semibold, letterSpacing: 0.4 },
-
 });
