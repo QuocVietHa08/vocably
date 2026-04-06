@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Dimensions,
+  View, Text, StyleSheet, Pressable, Dimensions, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -22,6 +22,7 @@ import { FilterTabs } from '@/src/components/FilterTabs';
 import { ActionButton } from '@/src/components/ActionButton';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
+import { useFlashcardQueue } from '@/src/hooks/useFlashcardQueue';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -49,6 +50,20 @@ export default function HomeScreen() {
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Stats for the "ResultsScreen" at the end of a session
+  const [known,       setKnown]       = useState(0);
+  const [learning,    setLearning]    = useState(0);
+  const [done,        setDone]        = useState(false);
+  const [missedCards, setMissedCards] = useState<Flashcard[]>([]);
+
+  // Local state for 'favorites' mode
+  const [localFavCards, setLocalFavCards] = useState<Flashcard[]>([]);
+  const [localFavIndex, setLocalFavIndex] = useState(0);
+
+  // Network queue for 'all' mode
+  const queue = useFlashcardQueue();
+  const cardStartTimeRef = useRef<number>(Date.now());
+
   function openDrawer() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setDrawerOpen(true);
@@ -58,63 +73,95 @@ export default function HomeScreen() {
     setDrawerOpen(false);
   }
 
-  const [cards,       setCards]       = useState<Flashcard[]>(() => shuffle(allCards));
-  const [index,       setIndex]       = useState(0);
-  const [known,       setKnown]       = useState(0);
-  const [learning,    setLearning]    = useState(0);
-  const [done,        setDone]        = useState(false);
-  const [missedCards, setMissedCards] = useState<Flashcard[]>([]);
-
-  // Re-build deck when filter changes
+  // Re-build favorites deck if filter changed to favorites
   useEffect(() => {
     if (!loaded) return;
-    const source = filterMode === 'favorites'
-      ? allCards.filter((c) => favoriteIds.has(c.id))
-      : allCards;
-    setCards(shuffle(source.length > 0 ? source : allCards));
-    setIndex(0); setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
+    if (filterMode === 'favorites') {
+      const source = allCards.filter(c => favoriteIds.has(c.id));
+      setLocalFavCards(shuffle(source));
+      setLocalFavIndex(0);
+    }
+    setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
   }, [filterMode, loaded]);
 
-  const currentCard = cards[index];
-  const total       = cards.length;
-  const favCount    = favoriteIds.size;
+  // Track the time a card appears so we can measure response time
+  useEffect(() => {
+    cardStartTimeRef.current = Date.now();
+  }, [filterMode === 'all' ? queue.currentCard?.id : localFavCards[localFavIndex]?.id]);
+
+  const currentCard = filterMode === 'all' 
+    ? queue.currentCard 
+    : localFavCards[localFavIndex];
+
+  const total = filterMode === 'all' 
+    ? queue.totalRemaining + known + learning // Approximate total session length
+    : localFavCards.length;
+
+  const favCount = favoriteIds.size;
 
   const advance = useCallback((result: 'know' | 'dontknow') => {
     ttsStop();
-    const card = cards[index];
+    if (!currentCard) return;
+
+    const isNewWord = !isLearned(currentCard.id);
     if (result === 'know') {
-      const isNewWord = !isLearned(card.id);
       if (isNewWord && !canLearnNewWord()) {
         router.push('/paywall?reason=words');
         return;
       }
-      setKnown((n) => n + 1);
-      void markLearned(card.id);
+      setKnown(n => n + 1);
+      void markLearned(currentCard.id);
       if (isNewWord) void incrementNewWords();
     } else {
-      setLearning((n) => n + 1);
-      setMissedCards((prev) => [...prev, card]);
+      setLearning(n => n + 1);
+      setMissedCards(prev => [...prev, currentCard]);
     }
-    if (index + 1 >= total) {
-      setDone(true);
+
+    const responseTime = Date.now() - cardStartTimeRef.current;
+
+    if (filterMode === 'all') {
+      // API powered backend queue — swipe removes card from array
+      queue.swipeCard(currentCard.id, result === 'know' ? 'right' : 'left', responseTime);
+      cardStartTimeRef.current = Date.now();
+      // Trigger done only in local fallback when the last card is swiped
+      if (queue.usingLocalFallback && queue.totalRemaining <= 1) {
+        setDone(true);
+      }
     } else {
-      setIndex((i) => i + 1);
+      // Static favorites queue
+      if (localFavIndex + 1 >= localFavCards.length) {
+        setDone(true);
+      } else {
+        setLocalFavIndex(i => i + 1);
+      }
     }
-  }, [index, total, cards, markLearned, isLearned, canLearnNewWord, incrementNewWords, router]);
+  }, [filterMode, currentCard, queue, localFavIndex, localFavCards.length, isLearned, canLearnNewWord, incrementNewWords, markLearned, router]);
 
   const restart = () => {
     ttsStop();
-    const source = filterMode === 'favorites'
-      ? allCards.filter((c) => favoriteIds.has(c.id))
-      : allCards;
-    setCards(shuffle(source.length > 0 ? source : allCards));
-    setIndex(0); setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
+    if (filterMode === 'all') {
+      queue.refetch();
+    } else {
+      const source = allCards.filter(c => favoriteIds.has(c.id));
+      setLocalFavCards(shuffle(source));
+      setLocalFavIndex(0);
+    }
+    setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
   };
 
   const retryMissed = (missed: Flashcard[]) => {
     ttsStop();
-    setCards(shuffle(missed));
-    setIndex(0); setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
+    if (filterMode === 'all') {
+      // Usually the backend handles missed cards naturally through SRS
+      // BUT if we want to manually retry the session's failed cards instantly:
+      setFilterMode('favorites'); // Fallback trick, or we just rely on SRS in 'all' mode.
+      setLocalFavCards(shuffle(missed));
+      setLocalFavIndex(0);
+    } else {
+      setLocalFavCards(shuffle(missed));
+      setLocalFavIndex(0);
+    }
+    setKnown(0); setLearning(0); setDone(false); setMissedCards([]);
   };
 
   const handleToggleFavorite = useCallback(() => {
@@ -149,20 +196,28 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
+        {/* Queue loading state */}
+        {filterMode === 'all' && queue.loading && !currentCard && (
+           <Animated.View entering={FadeIn} style={styles.loadingContainer}>
+             <ActivityIndicator size="large" color={t.accent} />
+             <Text style={[styles.loadingText, { color: t.muted }]}>{queue.message ?? 'Loading recommendations...'}</Text>
+           </Animated.View>
+        )}
+
         {/* ── Flash card / results ── */}
         <View style={styles.content}>
           {done ? (
             <ResultsScreen
               known={known}
               learning={learning}
-              total={total}
-              allCards={cards}
+              total={filterMode === 'all' ? known + learning : total}
+              allCards={filterMode === 'all' ? missedCards : localFavCards}
               onRestart={restart}
               onRetryMissed={retryMissed}
             />
           ) : currentCard && !(filterMode === 'favorites' && favCount === 0) ? (
             <Animated.View
-              key={index}
+              key={currentCard.id}
               entering={FadeInRight.duration(180)}
               exiting={FadeOutLeft.duration(180)}
             >
@@ -220,6 +275,10 @@ const styles = StyleSheet.create({
   emptyFavText: { fontSize: 15, fontFamily: F.semibold },
   emptyFavHint: { fontSize: 12, opacity: 0.7 },
 
+  /* Loading State */
+  loadingContainer: { alignItems: 'center', justifyContent: 'center', flex: 1, gap: 16 },
+  loadingText: { fontSize: 14, fontFamily: F.medium },
+
   content: { flex: 1, justifyContent: 'center' },
 
   /* Action button bar */
@@ -233,3 +292,4 @@ const styles = StyleSheet.create({
   swipeHint: { paddingBottom: 24, alignItems: 'center' },
   swipeHintText: { fontSize: 12, opacity: 0.6 },
 });
+

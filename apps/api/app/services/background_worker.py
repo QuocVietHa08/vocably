@@ -17,6 +17,7 @@ The client never waits for any of this.
 from __future__ import annotations
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
 from app.core.database import get_supabase
 from app.core.config import get_settings
@@ -46,8 +47,8 @@ class BackgroundWorker:
         user_id: str,
         flashcard_id: str,
         direction: str,
-        session_id: str | None = None,
-        response_time_ms: int | None = None,
+        session_id: Optional[str] = None,
+        response_time_ms: Optional[int] = None,
     ) -> None:
         """
         Full background processing pipeline for a swipe event.
@@ -173,8 +174,8 @@ class BackgroundWorker:
         user_id: str,
         flashcard_id: str,
         direction: str,
-        session_id: str | None,
-        response_time_ms: int | None,
+        session_id: Optional[str],
+        response_time_ms: Optional[int],
     ) -> None:
         """Insert a raw swipe event into the database."""
         try:
@@ -190,7 +191,7 @@ class BackgroundWorker:
         except Exception as e:
             logger.error(f"Failed to record swipe event: {e}")
 
-    def _get_card_category(self, flashcard_id: str) -> str | None:
+    def _get_card_category(self, flashcard_id: str) -> Optional[str]:
         """Look up the category of a flashcard."""
         try:
             result = (

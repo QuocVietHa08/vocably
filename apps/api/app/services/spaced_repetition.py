@@ -20,6 +20,7 @@ SM-2 Parameters:
 from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from app.core.database import get_supabase
 
@@ -42,7 +43,7 @@ class SpacedRepetitionScheduler:
         user_id: str,
         flashcard_id: str,
         direction: str,
-        response_time_ms: int | None = None,
+        response_time_ms: Optional[int] = None,
     ) -> dict:
         """
         Process a card review (swipe) and update the scheduling.
@@ -175,7 +176,7 @@ class SpacedRepetitionScheduler:
 
         return new_ef, new_interval, new_rep, new_streak
 
-    def _swipe_to_quality(self, direction: str, response_time_ms: int | None) -> int:
+    def _swipe_to_quality(self, direction: str, response_time_ms: Optional[int]) -> int:
         """
         Map a swipe direction + response time to SM-2 quality (0-5).
 

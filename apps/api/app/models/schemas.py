@@ -68,6 +68,13 @@ class UserLevelRequest(BaseModel):
     force_recalculate: bool = False
 
 
+class TTSRequest(BaseModel):
+    """Request to generate text-to-speech audio."""
+    input: str
+    voice: str = "nova"
+    speed: float = 1.0
+
+
 # ── Response Models ────────────────────────────────────────────
 
 class UserLevelResponse(BaseModel):

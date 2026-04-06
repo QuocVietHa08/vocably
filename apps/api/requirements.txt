@@ -12,9 +12,8 @@ langchain-core==0.3.29
 
 # Supabase
 supabase==2.11.0
-postgrest-py==0.18.0
 
 # Utilities
 httpx==0.28.1
-numpy==2.2.1
+numpy
 python-jose[cryptography]==3.3.0

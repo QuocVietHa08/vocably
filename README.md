@@ -36,31 +36,37 @@ npm run dev:admin
 ## Apps
 
 ### `apps/web`
+
 Full-featured web app with swipeable flashcards and OpenAI Realtime API voice practice.
 Add `OPENAI_API_KEY` to `apps/web/.env.local` to enable voice.
 
 ### `apps/mobile`
+
 Expo Go compatible React Native app with swipe cards and voice practice UI.
 Voice practice requires a custom Expo dev build (`npx expo run:ios`) with `react-native-webrtc`.
 Scan the QR code from `npm run dev:mobile` with the **Expo Go** app.
 
 ### `apps/api`
+
 FastAPI (Python) backend — AI-powered vocabulary recommendation engine.
-- `POST /api/swipe`              — fire-and-forget swipe recording
+
+- `POST /api/swipe` — fire-and-forget swipe recording
 - `GET  /api/cards/next/{userId}` — pre-loaded cards from queue (~20ms)
-- `POST /api/queue/prefill`      — fill card queue on app open
-- `POST /api/recommendations`    — on-demand AI recommendations
-- `POST /api/level`              — CEFR level detection
+- `POST /api/queue/prefill` — fill card queue on app open
+- `POST /api/recommendations` — on-demand AI recommendations
+- `POST /api/level` — CEFR level detection
 - `GET  /api/interests/{userId}` — topic interest scores
 - `GET  /api/due-cards/{userId}` — spaced repetition due cards
 
 See [apps/api/README.md](apps/api/README.md) for setup & deploy guide.
 
 ### `apps/admin`
+
 Admin dashboard for reviewing sessions, words, and user analytics.
 
 ## Packages
 
 ### `packages/shared`
+
 - `src/data/flashcards.ts` — IELTS vocabulary decks (24 cards, 4 categories)
 - `src/types/index.ts` — shared TypeScript interfaces (`CapturedWord`, `UserSession`, etc.)

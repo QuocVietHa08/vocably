@@ -15,6 +15,7 @@ Signals used:
 from __future__ import annotations
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
 from app.core.database import get_supabase
 
@@ -40,7 +41,7 @@ class TopicTracker:
         user_id: str,
         category: str,
         direction: str,
-        response_time_ms: int | None = None,
+        response_time_ms: Optional[int] = None,
     ) -> dict:
         """
         Record a single engagement event and update interest scores.
@@ -133,7 +134,7 @@ class TopicTracker:
         total_known: int,
         total_time_ms: int,
         direction: str,
-        response_time_ms: int | None,
+        response_time_ms: Optional[int],
         current_score: float,
     ) -> float:
         """
@@ -195,7 +196,7 @@ class TopicTracker:
 
         return max(0.01, min(0.99, smoothed))
 
-    def _get_interest(self, user_id: str, category: str) -> dict | None:
+    def _get_interest(self, user_id: str, category: str) -> Optional[dict]:
         """Get the current interest record for a user+category."""
         result = (
             self.db.table("topic_interests")

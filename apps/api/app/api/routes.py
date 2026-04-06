@@ -15,7 +15,7 @@ SLOW PATH (background or on-demand):
 """
 
 from __future__ import annotations
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
 from datetime import datetime, timezone
 
 from app.models.schemas import (
@@ -30,6 +30,7 @@ from app.models.schemas import (
     TopicScore,
     HealthResponse,
     CEFRLevel,
+    TTSRequest,
 )
 from app.services.background_worker import BackgroundWorker
 from app.services.card_queue import CardQueueService
@@ -37,6 +38,8 @@ from app.services.recommendation_engine import RecommendationEngine
 from app.services.level_detector import LevelDetector
 from app.services.topic_tracker import TopicTracker
 from app.services.spaced_repetition import SpacedRepetitionScheduler
+from app.core.config import get_settings
+from openai import AsyncOpenAI
 
 router = APIRouter()
 
@@ -48,11 +51,34 @@ level_detector = LevelDetector()
 topic_tracker = TopicTracker()
 sr_scheduler = SpacedRepetitionScheduler()
 
+openai_client = AsyncOpenAI(api_key=get_settings().openai_api_key)
+
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  FAST PATH — These endpoints are called on every swipe
 #  Target latency: <30ms
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@router.post("/api/tts")
+async def generate_tts(request: TTSRequest):
+    """
+    Generate text-to-speech audio using OpenAI TTS model.
+    Returns binary MP3 data.
+    """
+    try:
+        response = await openai_client.audio.speech.create(
+            model="tts-1",
+            voice=request.voice,
+            input=request.input,
+            speed=request.speed,
+            response_format="mp3"
+        )
+        # Read the raw binary content
+        audio_content = response.read()
+        return Response(content=audio_content, media_type="audio/mpeg")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate TTS: {str(e)}")
+
 
 @router.post("/api/swipe")
 async def record_swipe(
