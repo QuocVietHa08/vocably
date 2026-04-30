@@ -1,11 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import type { Flashcard } from '@/src/data/flashcards';
 
 export const BACKEND_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 
 // ─── Anonymous ID for testing ──────────────────────────────────────────
 
-const DEVICE_ID_KEY = '@vocally_device_id';
+const DEVICE_ID_KEY = 'vocally_device_id';
 
 // If a test user UUID is provided in env vars, use it directly.
 // This ensures the mobile app matches the seeded DB user during dev.
@@ -14,11 +14,10 @@ const TEST_USER_ID = process.env.EXPO_PUBLIC_TEST_USER_ID;
 export async function getDeviceId(): Promise<string> {
   if (TEST_USER_ID) return TEST_USER_ID;
 
-  let id = await AsyncStorage.getItem(DEVICE_ID_KEY);
+  let id = await SecureStore.getItemAsync(DEVICE_ID_KEY);
   if (!id) {
-    // Generate a simple pseudo-uuid
-    id = 'device-' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    await AsyncStorage.setItem(DEVICE_ID_KEY, id);
+    id = crypto.randomUUID();
+    await SecureStore.setItemAsync(DEVICE_ID_KEY, id);
   }
   return id;
 }

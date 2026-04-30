@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
 export async function POST() {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.AI_API_KEY;
 
   if (!apiKey) {
     return NextResponse.json(
-      { error: "OPENAI_API_KEY is not set in .env.local" },
+      { error: "AI_API_KEY is not set in .env.local" },
       { status: 500 }
     );
   }

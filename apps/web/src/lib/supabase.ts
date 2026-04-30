@@ -1,15 +1,25 @@
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Client-side Supabase client — safe to use in "use client" components
 export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Supabase env vars missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    );
+  }
+  return createBrowserClient(url, key);
 }
 
-// Convenience singleton for one-off calls
-export const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-);
+let _client: SupabaseClient | null = null;
+function getClient(): SupabaseClient {
+  if (!_client) _client = createClient();
+  return _client;
+}
+
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getClient(), prop, receiver);
+  },
+});

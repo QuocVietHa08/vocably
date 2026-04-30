@@ -44,8 +44,8 @@ export function useFlashcardQueue() {
   const usedLocalIdsRef = useRef<Set<string>>(new Set());
 
   // ── Fetch from backend ────────────────────────────────────────
-  const fetchNextBatch = useCallback(async () => {
-    if (isFetchingRef.current) return;
+  const fetchNextBatch = useCallback(async (): Promise<boolean> => {
+    if (isFetchingRef.current) return false;
     isFetchingRef.current = true;
     try {
       const res = await api.getNextCards(FETCH_COUNT);
@@ -56,10 +56,13 @@ export function useFlashcardQueue() {
           return [...prev, ...newCards];
         });
         setUsingLocalFallback(false);
+        return true;
       }
+      return false;
     } catch (e) {
       // Backend unreachable — silently fall through (initializeQueue handles fallback)
       console.warn('[Queue] Failed to fetch batch from backend:', e);
+      return false;
     } finally {
       isFetchingRef.current = false;
     }
@@ -95,10 +98,17 @@ export function useFlashcardQueue() {
       const prefillRes = await api.prefillQueue();
       if (prefillRes.message) setMessage(prefillRes.message);
 
-      // Fetch pre-loaded cards
-      await fetchNextBatch();
-
-      // If API returned nothing, fall back
+      // We poll up to 3 times for the queue to generate cards
+      let retries = 3;
+      while (retries > 0) {
+        const gotCards = await fetchNextBatch();
+        if (gotCards) break;
+        
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        retries--;
+      }
+      
+      // If still empty after polling, fall back to local (only if backend is truly failing to produce cards)
       setCards((prev) => {
         if (prev.length === 0) {
           loadLocalFallback();

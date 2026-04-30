@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -10,8 +11,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "IELTS Flashcards — Master Vocabulary for Band 7+",
-  description: "Interactive IELTS flashcard app with spaced repetition.",
+  title: "Vocally Grammar",
+  description: "AI-generated grammar drills with instant correction.",
 };
 
 export default function RootLayout({
@@ -20,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={dmSans.variable}>
       <body style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

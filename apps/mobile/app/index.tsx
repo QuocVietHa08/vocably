@@ -4,13 +4,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
-  FadeInRight, FadeOutLeft, FadeIn,
+  FadeIn,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { ttsStop } from '@/src/lib/openaiTts';
 import { allCards, type Flashcard } from '@/src/data/flashcards';
-import { FlashCard, type FlashCardRef } from '@/src/components/flashcard/FlashCard';
+import { SwipeDeck, type SwipeDeckHandle } from '@/src/components/flashcard/SwipeDeck';
 import { ResultsScreen } from '@/src/components/flashcard/ResultsScreen';
 import { useFavorites } from '@/src/hooks/useFavorites';
 import { useLearnedWords } from '@/src/hooks/useLearnedWords';
@@ -45,7 +45,7 @@ export default function HomeScreen() {
   const { favoriteIds, isFavorite, toggleFavorite, loaded } = useFavorites();
   const { markLearned, isLearned } = useLearnedWords();
   const { canLearnNewWord, incrementNewWords, newWordsToday, wordsLimit, isPro } = useUsageLimits();
-  const flashCardRef = useRef<FlashCardRef>(null);
+  const deckRef = useRef<SwipeDeckHandle>(null);
 
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -216,29 +216,27 @@ export default function HomeScreen() {
               onRetryMissed={retryMissed}
             />
           ) : currentCard && !(filterMode === 'favorites' && favCount === 0) ? (
-            <Animated.View
-              key={currentCard.id}
-              entering={FadeInRight.duration(180)}
-              exiting={FadeOutLeft.duration(180)}
-            >
-              <FlashCard
-                ref={flashCardRef}
-                card={currentCard}
-                onKnow={() => advance('know')}
-                onDontKnow={() => advance('dontknow')}
-                isFavorite={isFavorite(currentCard.id)}
-                onToggleFavorite={handleToggleFavorite}
-              />
-            </Animated.View>
+            <SwipeDeck
+              ref={deckRef}
+              cards={filterMode === 'all'
+                ? queue.cards
+                : localFavCards.slice(localFavIndex)}
+              onSwipe={(_card, direction) => {
+                console.log('[Home] deck swipe:', direction, _card.id);
+                advance(direction === 'right' ? 'know' : 'dontknow');
+              }}
+              isFavorite={isFavorite}
+              onToggleFavorite={handleToggleFavorite}
+            />
           ) : null}
         </View>
 
         {/* ── Action button bar ── */}
         {!done && currentCard && !(filterMode === 'favorites' && favCount === 0) && (
           <View style={styles.actionBar}>
-            <ActionButton variant="dontknow" onPress={() => flashCardRef.current?.triggerDontKnow()} />
-            <ActionButton variant="flip"     onPress={() => flashCardRef.current?.flipCard()} />
-            <ActionButton variant="know"     onPress={() => flashCardRef.current?.triggerKnow()} />
+            <ActionButton variant="dontknow" onPress={() => deckRef.current?.swipeLeft()} />
+            <ActionButton variant="flip"     onPress={() => deckRef.current?.flip()} />
+            <ActionButton variant="know"     onPress={() => deckRef.current?.swipeRight()} />
           </View>
         )}
 

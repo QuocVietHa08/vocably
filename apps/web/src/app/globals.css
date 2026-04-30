@@ -1,40 +1,126 @@
 @import "tailwindcss";
 
 :root {
-  --bg:      #f0f0f0;
-  --surface: #ffffff;
-  --fg:      #0a0a0a;
-  --muted:   #999999;
-  --subtle:  #e8e8e8;
-  --border:  #e0e0e0;
-  --accent:  #f4511e;
+  /* surfaces */
+  --bg:           #f5f5f1;
+  --surface:      #ffffff;
+  --surface-2:    #fbfbf8;
+  --surface-3:    #f9f9f5;
+  --surface-mute: #f2f2ed;
+
+  /* ink */
+  --fg:        #161616;
+  --ink:       #171714;
+  --ink-2:     #242420;
+  --ink-3:     #30302c;
+  --ink-4:     #4b4b45;
+  --muted:     #77776f;
+  --muted-2:   #8c8c84;
+  --muted-3:   #b0b0a8;
+  --muted-4:   #c9c9c1;
+
+  /* rule */
+  --rule:      #deded7;
+  --rule-2:    #e2e2db;
+  --rule-3:    #e8e8e1;
+  --rule-soft: #eeeeea;
+
+  /* accent (orange) */
+  --accent:        #f4511e;
+  --accent-hover:  #df4213;
+  --accent-press:  #c53a10;
+  --accent-50:     #fff0eb;
+  --accent-100:    #ffe4d4;
+  --accent-150:    #ffe8df;
+  --accent-200:    #fed7aa;
+  --accent-tint:   #fff7ed;
+
+  /* success */
+  --success:       #16a34a;
+  --success-50:    #f0fdf4;
+  --success-100:   #dcfce7;
+  --success-200:   #bbf7d0;
+  --success-ink:   #17351f;
+
+  /* danger reuses accent */
+
+  /* layout */
+  --shell-max:       1360px;
+  --shell-pad:       2rem;
+  --gutter:          1.75rem;
+  --aside-left-w:    304px;
+  --aside-right-w:   380px;
+  --header-h:        3.5rem;
+  --aside-top:       80px;
+  --aside-h:         calc(100dvh - 104px);
+  --workspace-min-h: 520px;
+
+  /* type rhythm */
+  --eyebrow-size:  11px;
+  --eyebrow-track: 0.12em;
+
+  /* shadows (single source) */
+  --shadow-xs:    0 1px 2px rgba(20,20,18,.04);
+  --shadow-sm:    0 1px 2px rgba(20,20,18,.04), 0 2px 6px rgba(20,20,18,.04);
+  --shadow-md:    0 6px 16px rgba(20,20,18,.06), 0 1px 2px rgba(20,20,18,.04);
+  --shadow-focus: 0 0 0 3px rgba(244,81,30,.18);
 }
 
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--fg);
+
+  --color-surface:       var(--surface);
+  --color-surface-2:     var(--surface-2);
+  --color-surface-3:     var(--surface-3);
+  --color-surface-mute:  var(--surface-mute);
+
+  --color-ink:    var(--ink);
+  --color-ink-2:  var(--ink-2);
+  --color-ink-3:  var(--ink-3);
+  --color-ink-4:  var(--ink-4);
+  --color-muted:    var(--muted);
+  --color-muted-2:  var(--muted-2);
+  --color-muted-3:  var(--muted-3);
+  --color-muted-4:  var(--muted-4);
+
+  --color-rule:      var(--rule);
+  --color-rule-2:    var(--rule-2);
+  --color-rule-3:    var(--rule-3);
+  --color-rule-soft: var(--rule-soft);
+
+  --color-accent:        var(--accent);
+  --color-accent-hover:  var(--accent-hover);
+  --color-accent-press:  var(--accent-press);
+  --color-accent-50:     var(--accent-50);
+  --color-accent-100:    var(--accent-100);
+  --color-accent-150:    var(--accent-150);
+  --color-accent-200:    var(--accent-200);
+  --color-accent-tint:   var(--accent-tint);
+
+  --color-success:      var(--success);
+  --color-success-50:   var(--success-50);
+  --color-success-100:  var(--success-100);
+  --color-success-200:  var(--success-200);
+  --color-success-ink:  var(--success-ink);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg:      #0a0a0a;
-    --surface: #141414;
-    --fg:      #f5f5f5;
-    --muted:   #666666;
-    --subtle:  #1c1c1c;
-    --border:  #222222;
-    --accent:  #f4511e;
-  }
+  --shadow-xs:    var(--shadow-xs);
+  --shadow-sm:    var(--shadow-sm);
+  --shadow-md:    var(--shadow-md);
+  --shadow-focus: var(--shadow-focus);
 }
 
 * {
   box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body {
   margin: 0;
-  padding: 0;
 }
 
 html, body {
@@ -45,10 +131,17 @@ html, body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-/* No scrollbar on mobile tabs */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* 3D card flip */
 .preserve-3d     { transform-style: preserve-3d; }
 .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}

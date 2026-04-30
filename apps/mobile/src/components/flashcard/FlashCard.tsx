@@ -37,6 +37,8 @@ interface FlashCardProps {
   onDontKnow:        () => void;
   isFavorite?:       boolean;
   onToggleFavorite?: () => void;
+  /** When false, FlashCard does not own a pan gesture and hides its swipe labels. Taps/flip/heart/share still work. Default true. */
+  draggable?:        boolean;
 }
 
 /* ─── Off-screen share card ────────────────────────────────────── */
@@ -383,6 +385,7 @@ export const FlashCard = forwardRef<FlashCardRef, FlashCardProps>(function Flash
   onDontKnow,
   isFavorite      = false,
   onToggleFavorite,
+  draggable       = true,
 }: FlashCardProps, ref) {
   const t       = useTheme();
   const { ttsVoice } = useSettings();
@@ -509,19 +512,18 @@ export const FlashCard = forwardRef<FlashCardRef, FlashCardProps>(function Flash
   const heartColor = isFavorite ? '#ef4444' : t.muted;
 
   // ── Render ─────────────────────────────────────────────────────
-  return (
-    <>
-      {/* Off-screen share card — captured by ShareButton, never shown in UI */}
-      <ShareCardView card={card} shareRef={shareRef} />
+  const cardBody = (
+    <Animated.View style={[styles.cardWrapper, draggable ? cardStyle : undefined]}>
 
-      <GestureDetector gesture={panGesture}>
-        <Animated.View style={[styles.cardWrapper, cardStyle]}>
-
-          {/* Swipe labels */}
+      {/* Swipe labels — only shown when FlashCard owns the gesture */}
+      {draggable && (
+        <>
           <Animated.View style={[styles.label, styles.knowLabel,     knowStyle]}     pointerEvents="none"><Text style={styles.knowText}>KNOW ✓</Text></Animated.View>
           <Animated.View style={[styles.label, styles.dontKnowLabel, dontKnowStyle]} pointerEvents="none"><Text style={styles.dontKnowText}>AGAIN ↺</Text></Animated.View>
+        </>
+      )}
 
-          {/* ── FRONT face ── */}
+      {/* ── FRONT face ── */}
           <Animated.View
             style={[styles.face, { backgroundColor: t.surface, borderColor: t.border }, frontStyle]}
             pointerEvents={flipped ? 'none' : 'box-none'}
@@ -638,8 +640,19 @@ export const FlashCard = forwardRef<FlashCardRef, FlashCardProps>(function Flash
             />
           </Animated.View>
 
-        </Animated.View>
-      </GestureDetector>
+    </Animated.View>
+  );
+
+  return (
+    <>
+      {/* Off-screen share card — captured by ShareButton, never shown in UI */}
+      <ShareCardView card={card} shareRef={shareRef} />
+
+      {draggable ? (
+        <GestureDetector gesture={panGesture}>{cardBody}</GestureDetector>
+      ) : (
+        cardBody
+      )}
     </>
   );
 });
