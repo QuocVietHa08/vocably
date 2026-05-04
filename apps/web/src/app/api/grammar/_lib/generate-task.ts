@@ -1,5 +1,6 @@
 import type { GrammarTask } from "@/types/grammar";
 import { normalizePrompt } from "@/lib/grammar-utils";
+import { getLessonMetadataForPrompt } from "@/data/grammar-course";
 import { callOpenAI } from "./openai-client";
 import { pickFallbackTask } from "./fallback";
 import { GenerateRequest, GrammarTaskSchema, grammarTaskJsonSchema } from "./schemas";
@@ -86,6 +87,7 @@ function buildGenerateUserPayload(
     taskTypes: resolvedTaskType ? [resolvedTaskType] : TASK_TYPES,
     recentHistory: req.history ?? [],
     disallowedPrompts: Array.from(usedPromptKeys),
+    availableLessons: getLessonMetadataForPrompt(req.level),
     requirements: GENERATE_REQUIREMENTS,
   });
 }

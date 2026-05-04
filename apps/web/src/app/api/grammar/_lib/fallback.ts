@@ -1,5 +1,6 @@
 import type { Feedback, GrammarTask } from "@/types/grammar";
 import { normalizePrompt } from "@/lib/grammar-utils";
+import { grammarCourseById } from "@/data/grammar-course";
 import { sampleTasks } from "./sample-tasks";
 import { FALLBACK_FEEDBACK } from "./constants";
 
@@ -41,6 +42,8 @@ export function fallbackCheck(task: GrammarTask, answer: string): Feedback {
         ],
     rewrite: task.targetAnswer ?? answer,
     nextTip: task.hint,
+    relatedLessonId: isCorrect ? undefined : task.lessonId,
+    relatedLessonTitle: !isCorrect && task.lessonId ? grammarCourseById[task.lessonId]?.title : undefined,
   };
 }
 

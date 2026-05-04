@@ -11,6 +11,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "had finished",
     hint: "One action happened before another past action.",
     difficulty: "B1",
+    lessonId: "b1-present-perfect-vs-past-simple",
   },
   {
     id: "sample-paraphrase-1",
@@ -21,6 +22,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "not early enough",
     hint: "Change only the phrase needed to keep the same meaning.",
     difficulty: "B2",
+    lessonId: "b2-linking-concession",
   },
   {
     id: "sample-word-1",
@@ -31,6 +33,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "made",
     hint: "Some nouns strongly prefer one verb.",
     difficulty: "B1",
+    lessonId: "b1-modals-obligation-advice",
   },
   {
     id: "sample-fix-1",
@@ -41,6 +44,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "that I apply",
     hint: "After suggest, English usually does not use object + to-infinitive.",
     difficulty: "B2",
+    lessonId: "b2-gerunds-infinitives",
   },
   {
     id: "sample-tense-2",
@@ -52,6 +56,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "have sent",
     hint: "Use present perfect for an action completed before now in an unfinished time period.",
     difficulty: "B1",
+    lessonId: "b1-present-perfect-vs-past-simple",
   },
   {
     id: "sample-tense-3",
@@ -63,6 +68,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "will be flying",
     hint: "Use future continuous for an action in progress at a specific future time.",
     difficulty: "B2",
+    lessonId: "b2-future-continuous-perfect",
   },
   {
     id: "sample-paraphrase-2",
@@ -74,6 +80,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "Despite the rain",
     hint: "After despite, use a noun phrase or gerund, not a full clause.",
     difficulty: "B2",
+    lessonId: "b2-linking-concession",
   },
   {
     id: "sample-paraphrase-3",
@@ -85,6 +92,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "not as difficult as",
     hint: "You may need to change the adjective to keep the same meaning.",
     difficulty: "B2",
+    lessonId: "b2-linking-concession",
   },
   {
     id: "sample-word-2",
@@ -96,6 +104,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "raised",
     hint: "Raise takes an object; rise does not.",
     difficulty: "B1",
+    lessonId: "b1-present-perfect-vs-past-simple",
   },
   {
     id: "sample-word-3",
@@ -107,6 +116,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "advice",
     hint: "Advice is a noun; advise is a verb.",
     difficulty: "A2",
+    lessonId: "a2-countable-uncountable",
   },
   {
     id: "sample-vocab-1",
@@ -118,6 +128,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "ambiguous",
     hint: "The word describes language with more than one possible meaning.",
     difficulty: "C1",
+    lessonId: "c1-hedging-academic",
   },
   {
     id: "sample-vocab-2",
@@ -129,6 +140,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "boost",
     hint: "This verb is often used with mood, confidence, sales, and energy.",
     difficulty: "B1",
+    lessonId: "b1-modals-obligation-advice",
   },
   {
     id: "sample-fix-2",
@@ -140,6 +152,7 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "meeting",
     hint: "After looking forward to, use a gerund.",
     difficulty: "B1",
+    lessonId: "b2-gerunds-infinitives",
   },
   {
     id: "sample-fix-3",
@@ -151,5 +164,6 @@ export const sampleTasks: GrammarTask[] = [
     targetAnswer: "were",
     hint: "With neither/nor, the verb often agrees with the nearer subject.",
     difficulty: "C1",
+    lessonId: "c1-advanced-relative-reduced",
   },
 ];

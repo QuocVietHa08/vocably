@@ -12,6 +12,7 @@ export const fallbackTask: GrammarTask = {
   targetAnswer: "had finished",
   hint: "One action happened before another past action.",
   difficulty: "B1",
+  lessonId: "b1-present-perfect-vs-past-simple",
 };
 
 export const typeLabels: Record<TaskTypeSelection, string> = {

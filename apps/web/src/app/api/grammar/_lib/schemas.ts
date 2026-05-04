@@ -20,6 +20,7 @@ export const GrammarTaskSchema = z.object({
   targetAnswer: z.string(),
   hint: z.string(),
   difficulty: z.enum(DIFFICULTIES),
+  lessonId: z.string().optional(),
 });
 
 export const FeedbackSchema = z.object({
@@ -29,6 +30,8 @@ export const FeedbackSchema = z.object({
   corrections: z.array(z.string()).min(1).max(4),
   rewrite: z.string(),
   nextTip: z.string(),
+  relatedLessonId: z.string().optional(),
+  relatedLessonTitle: z.string().optional(),
 });
 
 const HistoryItemSchema = z.object({
@@ -56,6 +59,7 @@ export const CheckRequestSchema = z.object({
     instruction: z.string(),
     prompt: z.string(),
     hint: z.string(),
+    lessonId: z.string().optional(),
   }),
   answer: z.string(),
 });

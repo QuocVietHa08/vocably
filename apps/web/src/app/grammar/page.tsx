@@ -20,12 +20,20 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
-import type { Feedback, GrammarTask, HistoryItem } from "@/types/grammar";
+import Link from "next/link";
+import type {
+  Feedback,
+  GrammarTask,
+  HistoryItem,
+  TaskTypeSelection,
+} from "@/types/grammar";
+import { grammarCourseById } from "@/data/grammar-course";
 import { useGrammarPracticeMutations } from "@/hooks/useGrammarPracticeMutations";
 import { useShortcut } from "@/hooks/useShortcut";
 import { useStatus } from "@/hooks/useStatus";
 import {
   fallbackTask,
+  levelLabels,
   levelOptions,
   typeLabels,
   typeOptions,
@@ -53,7 +61,7 @@ export default function GrammarPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [round, setRound] = useState(1);
   const [level, setLevel] = useState<GrammarTask["difficulty"]>("B1");
-  const [taskType, setTaskType] = useState<GrammarTask["type"]>("tense");
+  const [taskType, setTaskType] = useState<TaskTypeSelection>("tense");
   const [answer, setAnswer] = useState("");
   const [apiNote, setApiNote] = useState<string | null>(null);
 
@@ -171,6 +179,14 @@ export default function GrammarPage() {
   );
 
   const goalProgress = Math.min(100, (history.length / SESSION_GOAL) * 100);
+  const relatedLessonId =
+    feedback && !feedback.isCorrect
+      ? feedback.relatedLessonId ?? task.lessonId
+      : undefined;
+  const relatedLessonHref =
+    relatedLessonId && grammarCourseById[relatedLessonId]
+      ? `/courses?lesson=${encodeURIComponent(relatedLessonId)}`
+      : undefined;
 
   return (
     <div className="min-h-screen bg-[#f5f5f1] text-[#161616]">
@@ -218,7 +234,7 @@ export default function GrammarPage() {
             <div className="flex flex-col gap-4 p-5 pt-0">
               <div className="flex flex-col gap-2">
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-[#77776f]">
-                  Level
+                  IELTS band
                 </Label>
                 <Select
                   value={level}
@@ -230,7 +246,7 @@ export default function GrammarPage() {
                   <SelectContent>
                     {levelOptions.map((l) => (
                       <SelectItem key={l} value={l}>
-                        {l}
+                        IELTS {levelLabels[l]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -242,7 +258,7 @@ export default function GrammarPage() {
                 </Label>
                 <Select
                   value={taskType}
-                  onValueChange={(v) => setTaskType(v as GrammarTask["type"])}
+                  onValueChange={(v) => setTaskType(v as TaskTypeSelection)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -292,7 +308,9 @@ export default function GrammarPage() {
           <div className={`${card} overflow-hidden`}>
             <div className="flex flex-col gap-3 p-6 pb-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="accent">{task.difficulty}</Badge>
+                <Badge variant="accent">
+                  IELTS {levelLabels[task.difficulty]}
+                </Badge>
                 <Badge variant="muted">{typeLabels[task.type]}</Badge>
                 {apiNote && (
                   <Badge variant="warning" className="ml-auto">
@@ -354,7 +372,12 @@ export default function GrammarPage() {
             </div>
           </div>
 
-          {feedback && <FeedbackBlock feedback={feedback} />}
+          {feedback && (
+            <FeedbackBlock
+              feedback={feedback}
+              lessonHref={relatedLessonHref}
+            />
+          )}
         </section>
 
         <aside className="flex flex-col gap-4">
@@ -448,7 +471,13 @@ function Stat({
   );
 }
 
-function FeedbackBlock({ feedback }: { feedback: Feedback }) {
+function FeedbackBlock({
+  feedback,
+  lessonHref,
+}: {
+  feedback: Feedback;
+  lessonHref?: string;
+}) {
   const positive = feedback.isCorrect;
   return (
     <div
@@ -503,6 +532,17 @@ function FeedbackBlock({ feedback }: { feedback: Feedback }) {
               {feedback.rewrite}
             </p>
           </div>
+        )}
+        {lessonHref && (
+          <Button asChild variant="outline">
+            <Link href={lessonHref}>
+              <Lightbulb className="size-4" />
+              Review lesson
+              {feedback.relatedLessonTitle
+                ? `: ${feedback.relatedLessonTitle}`
+                : ""}
+            </Link>
+          </Button>
         )}
       </div>
     </div>

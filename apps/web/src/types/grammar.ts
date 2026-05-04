@@ -1,3 +1,7 @@
+export type GrammarCourseLevel = "A1" | "A2" | "B1" | "B2" | "C1";
+
+export type GrammarPracticeLevel = Exclude<GrammarCourseLevel, "A1">;
+
 export type GrammarTask = {
   id: string;
   type: "tense" | "paraphrase" | "word_choice" | "vocabulary" | "sentence_fix";
@@ -7,7 +11,8 @@ export type GrammarTask = {
   context?: string;
   targetAnswer?: string;
   hint: string;
-  difficulty: "A2" | "B1" | "B2" | "C1";
+  difficulty: GrammarPracticeLevel;
+  lessonId?: string;
 };
 
 export type Feedback = {
@@ -17,6 +22,8 @@ export type Feedback = {
   corrections: string[];
   rewrite: string;
   nextTip: string;
+  relatedLessonId?: string;
+  relatedLessonTitle?: string;
 };
 
 export type HistoryItem = {
@@ -28,6 +35,28 @@ export type HistoryItem = {
 };
 
 export type TaskTypeSelection = GrammarTask["type"] | "random";
+
+export type GrammarCourseExample = {
+  sentence: string;
+  note: string;
+};
+
+export type GrammarCourseExercise = {
+  prompt: string;
+  answer: string;
+};
+
+export type GrammarCourseLesson = {
+  id: string;
+  level: GrammarCourseLevel;
+  title: string;
+  summary: string;
+  explanation: string;
+  examples: GrammarCourseExample[];
+  commonMistakes: string[];
+  practicePrompts: GrammarCourseExercise[];
+  tags: string[];
+};
 
 export type GenerateGrammarRequest = {
   action: "generate";

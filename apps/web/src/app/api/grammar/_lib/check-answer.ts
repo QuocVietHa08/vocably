@@ -1,4 +1,5 @@
 import type { Feedback } from "@/types/grammar";
+import { getLessonMetadataForPrompt } from "@/data/grammar-course";
 import { callOpenAI } from "./openai-client";
 import { fallbackCheck } from "./fallback";
 import { CheckRequest, FeedbackSchema, feedbackJsonSchema } from "./schemas";
@@ -65,6 +66,7 @@ function buildCheckUserPayload(req: CheckRequest): string {
   return JSON.stringify({
     task: req.task,
     learnerAnswer: req.answer,
+    availableLessons: getLessonMetadataForPrompt(req.task.difficulty),
     gradingRules: CHECK_GRADING_RULES,
   });
 }

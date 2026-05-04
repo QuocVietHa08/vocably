@@ -1,16 +1,24 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, CheckCircle2, MessageSquare } from "lucide-react";
+import { AlertCircle, CheckCircle2, Lightbulb, MessageSquare } from "lucide-react";
+import Link from "next/link";
 import type { Feedback } from "@/types/grammar";
 import { Panel, PanelTitle } from "@/components/grammar/Panel";
 import { ScoreCounter } from "@/components/grammar/ScoreCounter";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { IconBox } from "@/components/ui/icon-box";
 import { Kbd } from "@/components/ui/kbd";
 import { staggerItemVariants, staggerListVariants } from "@/lib/motion";
 
-export function FeedbackPanel({ feedback }: { feedback: Feedback | null }) {
+export function FeedbackPanel({
+  feedback,
+  lessonHref,
+}: {
+  feedback: Feedback | null;
+  lessonHref?: string;
+}) {
   return (
     <Panel>
       <PanelTitle eyebrow="Review" title="Feedback" />
@@ -86,6 +94,19 @@ export function FeedbackPanel({ feedback }: { feedback: Feedback | null }) {
                 {feedback.rewrite}
               </p>
             </div>
+
+            {lessonHref ? (
+              <Button
+                asChild
+                variant="outline"
+                className="mt-4 w-full justify-center"
+              >
+                <Link href={lessonHref}>
+                  <Lightbulb size={16} />
+                  Review lesson
+                </Link>
+              </Button>
+            ) : null}
           </motion.div>
         ) : (
           <motion.div

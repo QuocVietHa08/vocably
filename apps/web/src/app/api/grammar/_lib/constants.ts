@@ -61,6 +61,7 @@ export const GENERATE_REQUIREMENTS = [
   "Include a targetAnswer that contains only the expected word or phrase, not a full sentence.",
   "Use practical everyday or IELTS-style English.",
   "Do not repeat any prompt from disallowedPrompts.",
+  "Choose the best lessonId from availableLessons.",
 ] as const;
 
 // ── Check-answer prompt parts ──
@@ -74,6 +75,8 @@ export const CHECK_GRADING_RULES = [
   "Accept equivalent short phrases when the meaning is unchanged.",
   "Corrections should be concrete and short.",
   "rewrite must be only the correct word/phrase, not the full sentence.",
+  "If the answer is wrong, include the most relevant relatedLessonId and relatedLessonTitle when available.",
+  "If the answer is correct, omit relatedLessonId and relatedLessonTitle unless the learner clearly needs review.",
 ] as const;
 
 // ── HTTP / API error messages (surfaced to clients) ──

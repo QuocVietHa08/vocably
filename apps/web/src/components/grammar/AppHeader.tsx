@@ -1,6 +1,7 @@
 "use client";
 
 import { BookOpen, Loader2, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { IconBox } from "@/components/ui/icon-box";
 import { MotionButton } from "@/components/ui/motion-button";
@@ -38,6 +39,21 @@ export function AppHeader({
             </p>
           </div>
         </div>
+
+        <nav className="hidden items-center gap-1 rounded-lg border border-rule bg-surface p-1 md:flex">
+          <Link
+            href="/"
+            className="rounded-md px-3 py-1.5 text-xs font-extrabold text-ink hover:bg-surface-mute"
+          >
+            Practice
+          </Link>
+          <Link
+            href="/courses"
+            className="rounded-md px-3 py-1.5 text-xs font-extrabold text-muted hover:bg-surface-mute hover:text-ink"
+          >
+            Courses
+          </Link>
+        </nav>
 
         <div className="hidden lg:block">
           <KbdGroup

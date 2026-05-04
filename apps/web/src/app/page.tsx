@@ -7,6 +7,7 @@ import type {
   HistoryItem,
   TaskTypeSelection,
 } from "@/types/grammar";
+import { grammarCourseById } from "@/data/grammar-course";
 import { useGrammarPracticeMutations } from "@/hooks/useGrammarPracticeMutations";
 import { useShortcut } from "@/hooks/useShortcut";
 import { useStatus } from "@/hooks/useStatus";
@@ -144,6 +145,15 @@ export default function Home() {
     { allowInInput: ["mod+Enter"] },
   );
 
+  const relatedLessonId =
+    feedback && !feedback.isCorrect
+      ? feedback.relatedLessonId ?? task.lessonId
+      : undefined;
+  const relatedLessonHref =
+    relatedLessonId && grammarCourseById[relatedLessonId]
+      ? `/courses?lesson=${encodeURIComponent(relatedLessonId)}`
+      : undefined;
+
   return (
     <AppShell
       header={
@@ -197,7 +207,10 @@ export default function Home() {
       }
       right={
         <StickyAside>
-          <FeedbackPanel feedback={feedback} />
+          <FeedbackPanel
+            feedback={feedback}
+            lessonHref={relatedLessonHref}
+          />
           <Panel>
             <PanelTitle eyebrow="Coach note" title="Next tip" />
             <p className="mt-3 text-sm font-medium leading-6 text-ink-3">
