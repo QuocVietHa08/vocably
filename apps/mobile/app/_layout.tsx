@@ -85,12 +85,25 @@ export default function RootLayout() {
               <StatusBar style="auto" />
               <NavigationGuard />
               <Stack
+                initialRouteName="index"
                 screenOptions={{
                   headerShown:  false,
                   animation:    'slide_from_right',
                   contentStyle: { backgroundColor: 'transparent' },
                 }}
-              />
+              >
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="favorites" options={{ headerShown: false }} />
+                <Stack.Screen name="practice" options={{ headerShown: false }} />
+                <Stack.Screen name="grammar/index" options={{ headerShown: false }} />
+                <Stack.Screen name="grammar/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="settings" options={{ headerShown: false }} />
+                <Stack.Screen name="quiz" options={{ headerShown: false }} />
+                <Stack.Screen name="typing-lesson" options={{ headerShown: false }} />
+                <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />
+                <Stack.Screen name="welcome" options={{ headerShown: false }} />
+                <Stack.Screen name="auth" options={{ headerShown: false }} />
+              </Stack>
           </PurchasesProvider>
           {/* </AuthProvider> */}
         </SettingsProvider>

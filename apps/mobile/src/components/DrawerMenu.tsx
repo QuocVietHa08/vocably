@@ -22,6 +22,7 @@ import {
   BookOpen as BookOpenIcon,
   Dumbbell as DumbbellIcon,
   Settings2 as Settings2Icon,
+  Flame as FlameIcon,
   X as XIcon,
   Menu as MenuIcon,
 } from 'lucide-react-native';
@@ -31,6 +32,7 @@ const Mic      = MicIcon      as LucideIcon;
 const BookOpen = BookOpenIcon as LucideIcon;
 const Dumbbell = DumbbellIcon as LucideIcon;
 const Settings2 = Settings2Icon as LucideIcon;
+const Flame    = FlameIcon    as LucideIcon;
 const X        = XIcon        as LucideIcon;
 const Menu     = MenuIcon     as LucideIcon;
 import { useTheme } from '@/src/theme';
@@ -60,7 +62,7 @@ export function BurgerIcon({ isOpen, color }: BurgerIconProps) {
 
 type MenuItem = {
   label: string;
-  route: '/practice' | '/grammar' | '/settings' | '/quiz';
+  route: '/' | '/practice' | '/grammar' | '/settings' | '/quiz';
   icon: React.ReactNode;
 };
 
@@ -152,6 +154,7 @@ export function DrawerMenu({ isOpen, onClose }: DrawerMenuProps) {
 
   /* ─── Menu items ─── */
   const items: MenuItem[] = [
+    { label: 'Swipe',        route: '/',          icon: <Flame    size={16} color={t.accent} strokeWidth={2.2} /> },
     { label: 'Speaking',     route: '/practice', icon: <Mic      size={16} color={t.accent} strokeWidth={2.2} /> },
     { label: 'Grammar',      route: '/grammar',  icon: <BookOpen size={16} color={t.accent} strokeWidth={2.2} /> },
     { label: 'Practice Quiz',route: '/quiz',     icon: <Dumbbell size={16} color={t.accent} strokeWidth={2.2} /> },

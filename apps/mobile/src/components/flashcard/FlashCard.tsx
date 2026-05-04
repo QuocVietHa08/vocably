@@ -7,7 +7,7 @@ import Animated, {
   interpolate, runOnJS, Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Volume2, Heart, Share2 } from 'lucide-react-native';
+import { Volume2, Share2 } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
 import { F } from '@/src/theme/fonts';
 import type { Flashcard } from '@/src/data/flashcards';
@@ -29,6 +29,7 @@ export interface FlashCardRef {
   triggerKnow:     () => void;
   triggerDontKnow: () => void;
   flipCard:        () => void;
+  speakCard:       () => void;
 }
 
 interface FlashCardProps {
@@ -391,9 +392,6 @@ export const FlashCard = forwardRef<FlashCardRef, FlashCardProps>(function Flash
   const { ttsVoice } = useSettings();
   const [flipped, setFlipped] = useState(false);
 
-  // Ref for the off-screen share card image
-  const shareRef = useRef<any>(null);
-
   // ── Shared values ─────────────────────────────────────────────
   const translateX   = useSharedValue(0);
   const translateY   = useSharedValue(0);
@@ -501,15 +499,26 @@ export const FlashCard = forwardRef<FlashCardRef, FlashCardProps>(function Flash
     setFlipped(toFlipped);
   }, [flipped, flipProgress]);
 
+  const handleSpeak = useCallback(() => {
+    if (!flipped) {
+      void ttsSpeak(card.word, ttsVoice, 0.85);
+      return;
+    }
+
+    const exampleText = card.examples?.length ? card.examples.join('. ') : card.example;
+    const text = [card.word, card.definition, exampleText].filter(Boolean).join('. ');
+    void ttsSpeak(text, ttsVoice, 0.85);
+  }, [card.definition, card.example, card.examples, card.word, flipped, ttsVoice]);
+
   // Expose imperative actions so the parent's button bar can trigger card animations
   useImperativeHandle(ref, () => ({
     triggerKnow:     () => flyOut('right'),
     triggerDontKnow: () => flyOut('left'),
     flipCard:        handleFlip,
-  }), [flyOut, handleFlip]);
+    speakCard:       handleSpeak,
+  }), [flyOut, handleFlip, handleSpeak]);
 
   const diffColor  = card.difficulty === 'hard' ? '#ef4444' : card.difficulty === 'medium' ? '#f59e0b' : '#22c55e';
-  const heartColor = isFavorite ? '#ef4444' : t.muted;
 
   // ── Render ─────────────────────────────────────────────────────
   const cardBody = (
@@ -554,32 +563,6 @@ export const FlashCard = forwardRef<FlashCardRef, FlashCardProps>(function Flash
               <Text style={[styles.hint, { color: t.muted }]}>tap to reveal · swipe to rate</Text>
             </View>
 
-            {/* 3 — Top-right button cluster: Share + Heart */}
-            <View style={styles.topRightCluster} pointerEvents="box-none">
-              <ShareButton shareRef={shareRef} />
-              {onToggleFavorite && (
-                <Pressable onPress={onToggleFavorite} hitSlop={14} style={styles.heartBtn}>
-                  {/* Burst ring */}
-                  <Animated.View style={[styles.burstRing, { borderColor: '#ef4444' }, burstStyle]} />
-                  {/* Heart icon */}
-                  <Animated.View style={heartAnimStyle}>
-                    <Heart
-                      size={19}
-                      color={heartColor}
-                      fill={isFavorite ? '#ef4444' : 'none'}
-                      strokeWidth={2}
-                    />
-                  </Animated.View>
-                </Pressable>
-              )}
-            </View>
-
-            {/* 4 — Speak word button (bottom-right) */}
-            <SpeakButton
-              onSpeak={() => void ttsSpeak(card.word, ttsVoice, 0.85)}
-              size={17}
-              style={styles.btnBottomRight}
-            />
           </Animated.View>
 
           {/* ── BACK face ── */}
@@ -621,23 +604,6 @@ export const FlashCard = forwardRef<FlashCardRef, FlashCardProps>(function Flash
                 </View>
               )}
             </View>
-
-            {/* 3a — Speak word (top-right) */}
-            <SpeakButton
-              onSpeak={() => void ttsSpeak(card.word, ttsVoice, 0.85)}
-              size={16}
-              style={styles.btnTopRight}
-            />
-
-            {/* 3b — Speak examples (bottom-right) */}
-            <SpeakButton
-              onSpeak={() => {
-                const text = card.examples?.length ? card.examples.join('. ') : card.example;
-                void ttsSpeak(text, ttsVoice, 0.85);
-              }}
-              size={14}
-              style={styles.btnBottomRight}
-            />
           </Animated.View>
 
     </Animated.View>
@@ -645,9 +611,6 @@ export const FlashCard = forwardRef<FlashCardRef, FlashCardProps>(function Flash
 
   return (
     <>
-      {/* Off-screen share card — captured by ShareButton, never shown in UI */}
-      <ShareCardView card={card} shareRef={shareRef} />
-
       {draggable ? (
         <GestureDetector gesture={panGesture}>{cardBody}</GestureDetector>
       ) : (

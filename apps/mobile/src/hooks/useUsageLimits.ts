@@ -8,12 +8,14 @@ const STORAGE_KEY = '@vocally/usageLimits';
 export const NEW_WORDS_LIMIT = 5;
 export const GRAMMAR_LESSONS_LIMIT = 3;
 export const QUIZ_SESSIONS_LIMIT = 3;
+export const VOICE_SESSIONS_LIMIT = 3;
 
 interface DailyData {
   date: string;
   newWords: number;
   grammarLessons: number;
   quizSessions: number;
+  voiceSessions: number;
 }
 
 function getToday(): string {
@@ -26,10 +28,18 @@ async function loadData(): Promise<DailyData> {
   if (raw) {
     try {
       const data: DailyData = JSON.parse(raw);
-      if (data.date === today) return data;
+      if (data.date === today) {
+        return {
+          date: today,
+          newWords: data.newWords ?? 0,
+          grammarLessons: data.grammarLessons ?? 0,
+          quizSessions: data.quizSessions ?? 0,
+          voiceSessions: data.voiceSessions ?? 0,
+        };
+      }
     } catch {}
   }
-  return { date: today, newWords: 0, grammarLessons: 0, quizSessions: 0 };
+  return { date: today, newWords: 0, grammarLessons: 0, quizSessions: 0, voiceSessions: 0 };
 }
 
 export function useUsageLimits() {
@@ -41,6 +51,7 @@ export function useUsageLimits() {
     newWords: 0,
     grammarLessons: 0,
     quizSessions: 0,
+    voiceSessions: 0,
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -71,6 +82,11 @@ export function useUsageLimits() {
     [isPro, data.quizSessions],
   );
 
+  const canUseVoiceSession = useCallback(
+    () => isPro || data.voiceSessions < VOICE_SESSIONS_LIMIT,
+    [isPro, data.voiceSessions],
+  );
+
   const incrementNewWords = useCallback(async () => {
     const current = await loadData();
     const next = { ...current, newWords: current.newWords + 1 };
@@ -89,17 +105,27 @@ export function useUsageLimits() {
     await persist(next);
   }, [persist]);
 
+  const incrementVoiceSessions = useCallback(async () => {
+    const current = await loadData();
+    const next = { ...current, voiceSessions: current.voiceSessions + 1 };
+    await persist(next);
+  }, [persist]);
+
   return {
     newWordsToday: data.newWords,
     wordsLimit,
     grammarLessonsToday: data.grammarLessons,
     quizSessionsToday: data.quizSessions,
+    voiceSessionsToday: data.voiceSessions,
+    voiceSessionsLimit: VOICE_SESSIONS_LIMIT,
     canLearnNewWord,
     canDoGrammarLesson,
     canDoQuiz,
+    canUseVoiceSession,
     incrementNewWords,
     incrementGrammarLessons,
     incrementQuizSessions,
+    incrementVoiceSessions,
     isPro,
     loaded,
   };

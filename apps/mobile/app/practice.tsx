@@ -11,7 +11,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Bookmark } from 'lucide-react-native';
 import { useTheme } from '@/src/theme';
-import { usePurchases } from '@/src/context/PurchasesContext';
+import { useUsageLimits } from '@/src/hooks/useUsageLimits';
 import { F } from '@/src/theme/fonts';
 import { VoiceSphere, type SphereState } from '@/src/components/voice/VoiceSphere';
 
@@ -34,7 +34,11 @@ export default function PracticeScreen() {
   const t         = useTheme();
   const router    = useRouter();
   const scrollRef = useRef<ScrollView>(null);
-  const { isPro } = usePurchases();
+  const {
+    canUseVoiceSession,
+    incrementVoiceSessions,
+    loaded: limitsLoaded,
+  } = useUsageLimits();
 
   const [sphereState, setSphereState] = useState<SphereState>('connecting');
   const [audioLevel,  setAudioLevel]  = useState(0);
@@ -64,6 +68,7 @@ export default function PracticeScreen() {
   const checkedIds     = useRef<Set<string>>(new Set());
   const stoppedRef     = useRef(false);
   const hasGreeted     = useRef(false);
+  const sessionStarted = useRef(false);
 
   /* ── Scroll to bottom — wait a tick for layout to settle ── */
   useEffect(() => {
@@ -78,24 +83,27 @@ export default function PracticeScreen() {
 
   /* ── Connect on mount (with session gate) ── */
   useEffect(() => {
+    if (!limitsLoaded || sessionStarted.current) return;
+
     if (!BACKEND_URL) {
       setError('Service not configured.');
       setSphereState('idle');
       return;
     }
 
-    // Voice practice is completely locked for free users
-    if (!isPro) {
+    if (!canUseVoiceSession()) {
       router.replace('/paywall?reason=voice');
       return;
     }
 
+    sessionStarted.current = true;
+    void incrementVoiceSessions();
     void connect();
 
     const t = setInterval(() => setElapsed((n) => n + 1), 1000);
     elapsedTimerRef.current = t;
     return () => clearInterval(t);
-  }, []);
+  }, [limitsLoaded]);
 
   /* ── Audio helpers ── */
 

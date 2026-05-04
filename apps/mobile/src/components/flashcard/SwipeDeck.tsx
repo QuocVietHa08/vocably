@@ -22,6 +22,7 @@ export interface SwipeDeckHandle {
   swipeLeft:  () => void;
   swipeRight: () => void;
   flip:       () => void;
+  speak:      () => void;
 }
 
 interface SwipeDeckProps {
@@ -102,6 +103,7 @@ export const SwipeDeck = forwardRef<SwipeDeckHandle, SwipeDeckProps>(function Sw
     swipeRight: () => flyOut('right'),
     swipeLeft:  () => flyOut('left'),
     flip:       () => topCardRef.current?.flipCard(),
+    speak:      () => topCardRef.current?.speakCard(),
   }), [flyOut]);
 
   // Top card transform — drag position + tilt

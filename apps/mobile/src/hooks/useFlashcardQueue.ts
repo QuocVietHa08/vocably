@@ -5,6 +5,7 @@ import { api, BACKEND_URL } from '@/src/lib/api';
 
 const QUEUE_THRESHOLD = 5;
 const FETCH_COUNT = 10;
+const USE_MOCK_CARDS = true;
 
 function shuffleSlice<T>(arr: T[], count: number): T[] {
   const copy = [...arr];
@@ -34,14 +35,18 @@ function apiCardToFlashcard(c: Record<string, any>): Flashcard {
 }
 
 export function useFlashcardQueue() {
-  const [cards, setCards] = useState<Flashcard[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialCardsRef = useRef<Flashcard[]>(shuffleSlice(allCards, FETCH_COUNT));
+  const usedLocalIdsRef = useRef<Set<string>>(new Set(initialCardsRef.current.map((c) => c.id)));
+
+  const [cards, setCards] = useState<Flashcard[]>(initialCardsRef.current);
+  const [loading, setLoading] = useState(!USE_MOCK_CARDS);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [usingLocalFallback, setUsingLocalFallback] = useState(false);
+  const [message, setMessage] = useState<string | null>(
+    USE_MOCK_CARDS ? 'Showing mock cards' : null,
+  );
+  const [usingLocalFallback, setUsingLocalFallback] = useState(USE_MOCK_CARDS);
 
   const isFetchingRef = useRef(false);
-  const usedLocalIdsRef = useRef<Set<string>>(new Set());
 
   // ── Fetch from backend ────────────────────────────────────────
   const fetchNextBatch = useCallback(async (): Promise<boolean> => {
@@ -83,6 +88,18 @@ export function useFlashcardQueue() {
 
   // ── Initialize ────────────────────────────────────────────────
   const initializeQueue = useCallback(async () => {
+    if (USE_MOCK_CARDS) {
+      usedLocalIdsRef.current = new Set();
+      const batch = shuffleSlice(allCards, FETCH_COUNT);
+      batch.forEach((c) => usedLocalIdsRef.current.add(c.id));
+      setCards(batch);
+      setUsingLocalFallback(true);
+      setMessage('Showing mock cards');
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
